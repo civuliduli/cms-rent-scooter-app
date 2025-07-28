@@ -1,0 +1,64 @@
+<mat-card style="margin: 20px;">
+  <mat-card-header>
+    <mat-card-title>Finished Rentals</mat-card-title>
+    <mat-card-subtitle>Only rentals that have been completed</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+
+    <div *ngIf="isLoading" style="text-align:center; padding:20px;">
+      <mat-spinner></mat-spinner>
+    </div>
+
+    <table *ngIf="!isLoading" mat-table [dataSource]="paginatedData" class="mat-elevation-z8 w-full">
+
+      <!-- Name -->
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef> Full Name </th>
+        <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+      </ng-container>
+
+      <!-- Phone -->
+      <ng-container matColumnDef="phone">
+        <th mat-header-cell *matHeaderCellDef> Phone </th>
+        <td mat-cell *matCellDef="let element"> {{element.phone}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="embg">
+        <th mat-header-cell *matHeaderCellDef> EMBG </th>
+        <td mat-cell *matCellDef="let element"> {{element.embg}} </td>
+      </ng-container>
+
+      <!-- Meeting Date -->
+      <ng-container matColumnDef="meetingDate">
+        <th mat-header-cell *matHeaderCellDef> Meeting Date </th>
+        <td mat-cell *matCellDef="let element">
+          {{ formatMeetingDate(element.meetingDate) }}
+        </td>
+      </ng-container>
+
+      <!-- Amount -->
+      <ng-container matColumnDef="amount">
+        <th mat-header-cell *matHeaderCellDef> Amount </th>
+        <td mat-cell *matCellDef="let element"> {{element.amount}} </td>
+      </ng-container>
+
+      <!-- Rental Status -->
+      <ng-container matColumnDef="isRentActive">
+        <th mat-header-cell *matHeaderCellDef> Status </th>
+        <td mat-cell *matCellDef="let element">
+          <mat-chip [color]="element.isRentActive ? 'primary' : 'warn'" selected>
+            {{ element.isRentActive ? 'Active' : 'Finished' }}
+          </mat-chip>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+
+    <mat-paginator [length]="rentals.length" [pageSize]="pageSize" [pageSizeOptions]="[5, 10, 20]"
+      (page)="onPageChange($event)">
+    </mat-paginator>
+
+  </mat-card-content>
+</mat-card>

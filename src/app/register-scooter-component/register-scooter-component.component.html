@@ -1,0 +1,134 @@
+<!-- Tailwind Form Container -->
+<div class="bg-white shadow-md rounded-lg p-8 mx-6 mt-6">
+  <h2 class="text-2xl font-semibold mb-4 text-gray-800">Add New Scooter</h2>
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid grid-cols-6 gap-6">
+    
+    <!-- Scooter Model -->
+    <div class="col-span-6 sm:col-span-3">
+      <label class="block text-sm font-medium text-gray-700 mb-1" for="scooterModel">Scooter Model</label>
+      <input
+        type="text"
+        id="scooterModel"
+        formControlName="scooterModel"
+        placeholder="e.g., Xiaomi Mi Pro 2"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none"
+      />
+      <p *ngIf="form.get('scooterModel')?.hasError('required') && form.get('scooterModel')?.touched"
+         class="text-red-500 text-sm mt-1">Scooter model is required.</p>
+    </div>
+
+    <!-- Scooter Serial Number -->
+    <div class="col-span-6 sm:col-span-3">
+      <label class="block text-sm font-medium text-gray-700 mb-1" for="scooterSerialNumber">Scooter Serial Number</label>
+      <input
+        type="text"
+        id="scooterSerialNumber"
+        formControlName="scooterSerialNumber"
+        placeholder="e.g., XM123456789"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none"
+      />
+      <p *ngIf="form.get('scooterSerialNumber')?.hasError('required') && form.get('scooterSerialNumber')?.touched"
+         class="text-red-500 text-sm mt-1">Serial number is required.</p>
+    </div>
+
+    <!-- Quantity -->
+    <div class="col-span-6 sm:col-span-3">
+      <label class="block text-sm font-medium text-gray-700 mb-1" for="scooterQuantity">Quantity</label>
+      <input
+        type="number"
+        id="scooterQuantity"
+        formControlName="scooterQuantity"
+        placeholder="1"
+        (keypress)="allowOnlyNumbers($event)"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none"
+      />
+      <p *ngIf="form.get('scooterQuantity')?.hasError('required') && form.get('scooterQuantity')?.touched"
+         class="text-red-500 text-sm mt-1">Quantity is required.</p>
+      <p *ngIf="form.get('scooterQuantity')?.hasError('pattern') && form.get('scooterQuantity')?.touched"
+         class="text-red-500 text-sm mt-1">Please enter numbers only.</p>
+      <p *ngIf="form.get('scooterQuantity')?.hasError('min') && form.get('scooterQuantity')?.touched"
+         class="text-red-500 text-sm mt-1">Quantity must be at least 1.</p>
+    </div>
+
+    <!-- Buttons -->
+    <div class="col-span-6 flex items-center gap-4 mt-4">
+      <button
+        type="submit"
+        [disabled]="!form.valid"
+        class="bg-green-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-green-700 transition disabled:opacity-50"
+      >
+        {{ form.valid ? 'Register Scooter' : 'Please fill all fields' }}
+      </button>
+      <button
+        type="button"
+        (click)="form.reset()"
+        class="bg-gray-300 text-gray-800 font-semibold px-6 py-2 rounded-md hover:bg-gray-400 transition"
+      >
+        Clear Form
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Scooters Table -->
+<mat-card style="margin: 20px;">
+  <mat-card-header>
+    <mat-card-title>Registered Scooters</mat-card-title>
+    <mat-card-subtitle>All scooters in the database</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <div *ngIf="isLoading" style="text-align: center; padding: 20px;">
+      <mat-spinner></mat-spinner>
+      <p>Loading scooters...</p>
+    </div>
+
+    <div *ngIf="!isLoading && scooters.length === 0" style="text-align: center; padding: 20px;">
+      <mat-icon style="font-size: 48px; color: #ccc;">electric_scooter</mat-icon>
+      <p>No scooters registered yet. Add your first scooter above!</p>
+    </div>
+
+    <div *ngIf="!isLoading && scooters.length > 0" class="mat-elevation-z8">
+      <table mat-table [dataSource]="scooters" class="mat-table">
+        <!-- Model Column -->
+        <ng-container matColumnDef="scooterModel">
+          <th mat-header-cell *matHeaderCellDef>Model</th>
+          <td mat-cell *matCellDef="let scooter">{{scooter.scooterModel}}</td>
+        </ng-container>
+
+        <!-- Serial Number Column -->
+        <ng-container matColumnDef="scooterSerialNumber">
+          <th mat-header-cell *matHeaderCellDef>Serial Number</th>
+          <td mat-cell *matCellDef="let scooter">{{scooter.scooterSerialNumber}}</td>
+        </ng-container>
+
+        <!-- Quantity Column -->
+        <ng-container matColumnDef="scooterQuantity">
+          <th mat-header-cell *matHeaderCellDef>Quantity</th>
+          <td mat-cell *matCellDef="let scooter">{{scooter.scooterQuantity}}</td>
+        </ng-container>
+
+        <!-- Created Date Column -->
+        <ng-container matColumnDef="createdAt">
+          <th mat-header-cell *matHeaderCellDef>Created Date</th>
+          <td mat-cell *matCellDef="let scooter">{{scooter.createdAt | date:'short'}}</td>
+        </ng-container>
+
+        <!-- Actions Column -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let scooter">
+            <button mat-icon-button 
+                    color="warn"
+                    (click)="deleteScooter(scooter.id!, scooter.scooterModel)"
+                    matTooltip="Delete scooter">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    </div>
+  </mat-card-content>
+</mat-card>

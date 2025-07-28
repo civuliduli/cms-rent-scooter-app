@@ -1,0 +1,220 @@
+<!-- Rental Form Container -->
+<div class="bg-white shadow-md rounded-lg p-8 mx-6 mt-6">
+  <h2 class="text-2xl font-semibold mb-4 text-gray-800">Create Rental</h2>
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid grid-cols-6 gap-6">
+
+    <!-- Full Name -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Full Name:</label>
+      <input id="name" formControlName="name" type="text"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('name')?.invalid && form.get('name')?.touched" class="text-red-500 text-sm mt-1">Name is
+        required.</p>
+    </div>
+
+    <!-- Phone Number -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number:</label>
+      <input id="phone" formControlName="phone" type="tel" pattern="[0-9]*" inputmode="numeric"
+        (keypress)="allowOnlyNumbers($event)"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('phone')?.invalid && form.get('phone')?.touched" class="text-red-500 text-sm mt-1">Phone must
+        be 10 digits.</p>
+    </div>
+
+    <!-- Email -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+      <input id="email" formControlName="email" type="email"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('email')?.invalid && form.get('email')?.touched" class="text-red-500 text-sm mt-1">Valid email
+        is required.</p>
+    </div>
+
+    <div class="col-span-6 sm:col-span-3">
+      <label for="address" class="block text-sm font-medium text-gray-700 mb-1">Address:</label>
+      <input id="address" formControlName="address" type="text"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('address')?.invalid && form.get('address')?.touched" class="text-red-500 text-sm mt-1">
+        Address is required.
+      </p>
+    </div>
+
+    <!-- EMBG -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="embg" class="block text-sm font-medium text-gray-700 mb-1">EMBG:</label>
+      <input id="embg" formControlName="embg" type="tel" pattern="[0-9]*" inputmode="numeric"
+        (keypress)="allowOnlyNumbers($event)"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('embg')?.invalid && form.get('embg')?.touched" class="text-red-500 text-sm mt-1">EMBG must be
+        exactly 15 digits.</p>
+    </div>
+
+    <!-- Registered Scooter Selection -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="scooterId" class="block text-sm font-medium text-gray-700 mb-1">Select Scooter</label>
+      <select id="scooterId" formControlName="scooterId"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none">
+        <option value="">-- Select Scooter --</option>
+        <option *ngFor="let scooter of scooters" [value]="scooter.id">
+          {{ scooter.scooterModel || 'Scooter ' + scooter.id }}
+        </option>
+      </select>
+      <p *ngIf="form.get('scooterId')?.invalid && form.get('scooterId')?.touched" class="text-red-500 text-sm mt-1">
+        Please select a scooter.
+      </p>
+    </div>
+
+    <!-- Scooter Serial Number -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="scooterSerialNumber" class="block text-sm font-medium text-gray-700 mb-1">Scooter Serial
+        Number</label>
+      <input id="scooterSerialNumber" formControlName="scooterSerialNumber" type="text" readonly
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('scooterSerialNumber')?.invalid && form.get('scooterSerialNumber')?.touched"
+        class="text-red-500 text-sm mt-1">Serial number is required.</p>
+    </div>
+
+    <!-- Due Date -->
+    <div class="col-span-6 sm:col-span-3">
+      <!-- Leave this inside the form as is -->
+      <mat-form-field appearance="fill" class="w-full rounded-md">
+        <mat-label>Due Date</mat-label>
+        <input matInput [matDatepicker]="datepicker" formControlName="meetingDate" />
+        <mat-datepicker-toggle matSuffix [for]="datepicker"></mat-datepicker-toggle>
+      </mat-form-field>
+
+      <!-- Move this outside of any table or complex container -->
+      <mat-datepicker #datepicker></mat-datepicker>
+      <p *ngIf="form.get('meetingDate')?.invalid && form.get('meetingDate')?.touched" class="text-red-500 text-sm mt-1">
+        Due date is required.
+      </p>
+    </div>
+
+    <!-- Number of Days -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Nr of days</label>
+      <input id="amount" formControlName="nrOfDays" type="number" pattern="[0-9]*" inputmode="numeric"
+        (keypress)="allowOnlyNumbers($event)"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('nrOfDays')?.invalid && form.get('nrOfDays')?.touched" class="text-red-500 text-sm mt-1">Number
+        of days is required and must be a positive integer.</p>
+    </div>
+
+    <!-- Select Accessories -->
+    <div class="col-span-6 sm:col-span-3">
+      <label class="block mb-2 font-semibold text-gray-700">Select Accessories</label>
+
+      <div *ngFor="let accessory of accessoriess" class="mb-1">
+        <label class="inline-flex items-center space-x-2">
+          <input type="checkbox" [value]="accessory" (change)="onCheckboxChange($event)" class="mr-2" />
+          <span>{{ accessory }}</span>
+        </label>
+      </div>
+
+      <p *ngIf="form.get('accessories')?.invalid && form.get('accessories')?.touched" class="text-red-500 text-sm mt-2">
+        Please select at least one accessory.
+      </p>
+    </div>
+
+    <!-- Deposit in case of damage -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="depositDamage" class="block text-sm font-medium text-gray-700 mb-1">Deposit in case of damage</label>
+      <input id="depositDamage" formControlName="depositDamage" type="number" pattern="[0-9]*" inputmode="numeric"
+        (keypress)="allowOnlyNumbers($event)"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('depositDamage')?.invalid && form.get('depositDamage')?.touched"
+        class="text-red-500 text-sm mt-1">Valid amount is required.</p>
+    </div>
+
+    <!-- Amount -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+      <input id="amount" formControlName="amount" type="number" pattern="[0-9]*" inputmode="numeric"
+        (keypress)="allowOnlyNumbers($event)"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('amount')?.invalid && form.get('amount')?.touched" class="text-red-500 text-sm mt-1">Valid
+        amount is required.</p>
+    </div>
+
+    <!-- Buttons -->
+    <div class="col-span-6 flex space-x-4 mt-4">
+      <button type="button" (click)="onPrint()" [disabled]="!form.valid"
+        class="px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-green-700 transition-colors">
+        Print
+      </button>
+      <button type="submit" [disabled]="!form.valid"
+        class="px-4 py-2 bg-gray-600 text-white rounded disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors">
+        Save
+      </button>
+    </div>
+  </form>
+</div>
+
+<mat-card style="margin: 20px;">
+  <mat-card-header>
+    <mat-card-title>Existing Rentals</mat-card-title>
+    <mat-card-subtitle>All current rental records</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <table mat-table [dataSource]="rentals" class="mat-elevation-z8 w-full">
+      <!-- Columns defined here, same as your original -->
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef> Full Name </th>
+        <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+      </ng-container>
+      <!-- Other columns -->
+      <ng-container matColumnDef="phone">
+        <th mat-header-cell *matHeaderCellDef> Phone </th>
+        <td mat-cell *matCellDef="let element"> {{element.phone}} </td>
+      </ng-container>
+      <ng-container matColumnDef="address">
+        <th mat-header-cell *matHeaderCellDef> Address </th>
+        <td mat-cell *matCellDef="let element"> {{element.address}} </td>
+      </ng-container>
+      <ng-container matColumnDef="embg">
+        <th mat-header-cell *matHeaderCellDef> EMBG </th>
+        <td mat-cell *matCellDef="let element"> {{element.embg}} </td>
+      </ng-container>
+      <ng-container matColumnDef="scooter">
+        <th mat-header-cell *matHeaderCellDef> Scooter </th>
+        <td mat-cell *matCellDef="let element">
+          {{element.scooterName || 'Unknown Scooter'}}
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="scooterSerialNr">
+        <th mat-header-cell *matHeaderCellDef> Scooter Serial Number </th>
+        <td mat-cell *matCellDef="let element">
+          {{element.scooterSerialNumber || 'N/A'}}
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="meetingDate">
+        <th mat-header-cell *matHeaderCellDef> Due Date </th>
+        <td mat-cell *matCellDef="let element">
+          <span *ngIf="element.meetingDate as date">
+            {{ (date.toDate ? date.toDate() : date) | date:'MM/dd/yyyy' }}
+          </span>
+          <span *ngIf="!element.meetingDate">N/A</span>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="amount">
+        <th mat-header-cell *matHeaderCellDef> Amount </th>
+        <td mat-cell *matCellDef="let element"> {{element.amount}} </td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef> Actions </th>
+        <td mat-cell *matCellDef="let element">
+          <div class="flex space-x-2">
+            <button mat-button color="accent" (click)="finishRental(element)" [disabled]="!element.isRentActive"
+              class="text-sm">
+              Finish Rental
+            </button>
+          </div>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+  </mat-card-content>
+</mat-card>

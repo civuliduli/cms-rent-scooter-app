@@ -1,0 +1,30 @@
+<mat-drawer-container class="example-container" autosize>
+  <mat-drawer #drawer class="example-sidenav" mode="side" [opened]="true">
+    <div class="flex flex-col h-full justify-between px-8 py-8">
+      <!-- Top Navigation Links -->
+      <div class="gap-4 flex flex-col">
+        <a routerLink="/" class="text-white text-xl">Home</a>
+        <a routerLink="/registerScooters" class="text-white text-xl">Register Scooter</a>
+        <a routerLink="/generalDatabase" class="text-white text-xl">General Database</a>
+      </div>
+
+      <!-- Logout Section at Bottom -->
+      <div class="flex items-center gap-2">
+        <img src="/logout-2-svgrepo-com.svg" alt="Logout Icon" class="w-6 h-6" />
+        <button (click)="onLogout()" class="text-white text-xl logout-btn">
+          Logout
+        </button>
+      </div>
+    </div>
+  </mat-drawer>
+
+  <div class="example-sidenav-content">
+    <!-- 🍔 Hamburger Menu Button -->
+    <button mat-icon-button (click)="drawer.toggle()" class="m-4">
+      <mat-icon>menu</mat-icon>
+    </button>
+
+    <!-- Routed Content -->
+    <router-outlet></router-outlet>
+  </div>
+</mat-drawer-container>
