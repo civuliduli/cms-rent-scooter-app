@@ -1,13 +1,13 @@
 <mat-drawer-container class="example-container" autosize>
-  <mat-drawer #drawer class="example-sidenav" mode="side" [opened]="true">
+  <mat-drawer #drawer class="example-sidenav" mode="side" [opened]="showSidebar">
     <div class="flex flex-col h-full justify-between px-8 py-8">
       <!-- Top Navigation Links -->
       <div class="gap-4 flex flex-col">
-        <a routerLink="/" class="text-white text-xl">Home</a>
+        <a routerLink="/home" class="text-white text-xl">Home</a>
         <a routerLink="/registerScooters" class="text-white text-xl">Register Scooter</a>
         <a routerLink="/generalDatabase" class="text-white text-xl">General Database</a>
       </div>
-
+      
       <!-- Logout Section at Bottom -->
       <div class="flex items-center gap-2">
         <img src="/logout-2-svgrepo-com.svg" alt="Logout Icon" class="w-6 h-6" />
@@ -17,13 +17,13 @@
       </div>
     </div>
   </mat-drawer>
-
+  
   <div class="example-sidenav-content">
-    <!-- 🍔 Hamburger Menu Button -->
-    <button mat-icon-button (click)="drawer.toggle()" class="m-4">
+    <!-- 🍔 Hamburger Menu Button - only show when sidebar should be visible -->
+    <button *ngIf="showSidebar" mat-icon-button (click)="drawer.toggle()" class="m-4">
       <mat-icon>menu</mat-icon>
     </button>
-
+    
     <!-- Routed Content -->
     <router-outlet></router-outlet>
   </div>

@@ -2,10 +2,10 @@ import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
-  // Redirect to home by default
+  // Redirect to login by default
   {
     path: '',
-    redirectTo: '/home',
+    redirectTo: '/login',
     pathMatch: 'full'
   },
   
@@ -42,9 +42,9 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   
-  // Wildcard route - redirect to home
+  // Wildcard route - redirect to login for unknown routes
   {
     path: '**',
-    redirectTo: '/home'
+    redirectTo: '/login'
   }
 ];

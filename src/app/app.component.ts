@@ -9,11 +9,8 @@ import { SideBarComponentComponent } from "./side-bar-component/side-bar-compone
   standalone: true,
   imports: [RouterModule, SideBarComponentComponent, CommonModule],
   template: `
-    <!-- Show sidebar only when user is authenticated -->
-    <app-side-bar-component *ngIf="isAuthenticated"></app-side-bar-component>
-    
-    <!-- Always show router outlet -->
-    <router-outlet></router-outlet>
+    <!-- Always show sidebar component - it handles the conditional logic internally -->
+    <app-side-bar-component></app-side-bar-component>
   `,
   styleUrls: ['./app.component.scss']
 })
