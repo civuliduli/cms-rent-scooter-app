@@ -46,6 +46,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   
   logoBase64 = '';
+  signatureBase64 = ''; // Added signature storage
   accessoriess = ['Helmet', 'Charger'];
   rentals: any[] = [];
   displayedColumns: string[] = ['name', 'phone', 'embg', 'meetingDate', 'address', 'amount', 'scooter', 'scooterSerialNr', 'actions'];
@@ -55,40 +56,38 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
   isSubmitting = false;
   isInitialized = false;
 
-  form = new FormGroup({
-    name: new FormControl('', Validators.required),
-    phone: new FormControl('', [
-      Validators.required,
-      Validators.pattern('^[0-9]*$'),
-      Validators.minLength(10),
-      Validators.maxLength(10)
-    ]),
-    email: new FormControl('', [Validators.required, Validators.email]),
-    embg: new FormControl('', [
-      Validators.required,
-      Validators.pattern('^[0-9]{15}$')
-    ]),
-    meetingDate: new FormControl(new Date(), Validators.required),
-    nrOfDays: new FormControl('', [
-      Validators.required,
-      Validators.pattern('^[0-9]*$')
-    ]),
-    depositDamage: new FormControl('', [
-      Validators.required,
-      Validators.pattern('^[0-9]*$')
-    ]),
-    accessories: new FormArray([], this.minSelectedCheckboxes(1)),
-    amount: new FormControl('', [
-      Validators.required,
-      Validators.pattern('^[0-9]*$')
-    ]),
-    scooterSerialNumber: new FormControl('', Validators.required),
-    isRentActive: new FormControl(false),
-    scooterId: new FormControl('', Validators.required),
-    address: new FormControl('', [
-      Validators.required,
-    ])
-  });
+form = new FormGroup({
+  name: new FormControl('', Validators.required),
+  phone: new FormControl('', [
+    Validators.required,
+    Validators.pattern('^[0-9]*$')
+  ]),
+  email: new FormControl('', [Validators.required, Validators.email]),
+  embg: new FormControl('', [
+    Validators.required,
+    Validators.pattern('^[0-9]*$')
+  ]),
+  meetingDate: new FormControl(new Date(), Validators.required),
+  nrOfDays: new FormControl('', [
+    Validators.required,
+    Validators.pattern('^[0-9]*$')
+  ]),
+  depositDamage: new FormControl('', [
+    Validators.required,
+    Validators.pattern('^[0-9]*$')
+  ]),
+  accessories: new FormArray([], this.minSelectedCheckboxes(1)),
+  amount: new FormControl('', [
+    Validators.required,
+    Validators.pattern('^[0-9]*$')
+  ]),
+  scooterSerialNumber: new FormControl('', Validators.required),
+  isRentActive: new FormControl(false),
+  scooterId: new FormControl('', Validators.required),
+  address: new FormControl('', [
+    Validators.required,
+  ])
+});
 
   constructor() {
     // Remove async operations from constructor
@@ -100,6 +99,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
       
       // Load data first
       await this.loadImageAsBase64();
+      await this.loadSignature(); // Load signature
       await this.loadScooters();
       await this.loadRentals();
       
@@ -285,6 +285,39 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Load signature from assets
+  async loadSignature() {
+    try {
+      let response = await fetch('assets/signature.png');
+      if (!response.ok) {
+        response = await fetch('/signature.png');
+      }
+      if (!response.ok) {
+        console.log('No signature found - will use default line');
+        return;
+      }
+
+      const blob = await response.blob();
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          this.signatureBase64 = reader.result as string;
+          console.log('Signature loaded successfully');
+          resolve(this.signatureBase64);
+        };
+        reader.onerror = (error) => {
+          console.error('FileReader error:', error);
+          reject(error);
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('Error loading signature:', error);
+      this.signatureBase64 = '';
+      return '';
+    }
+  }
+
   async saveFormData(formData: any) {
     try {
       const rentalsCollection = collection(this.firestore, 'rentals');
@@ -375,6 +408,10 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     while (accessoriesArray.length !== 0) {
       accessoriesArray.removeAt(0);
     }
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+checkboxes.forEach((checkbox: any) => {
+  checkbox.checked = false;
+});
   }
 
   async onPrint() {
@@ -412,87 +449,87 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
         const currentDate = new Date().toLocaleDateString();
 
         const printContent = `
-        <div style="font-family: Arial, sans-serif; font-size: 9px; padding: 10px; max-width: 800px; margin: auto;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
+          <div style="font-family: Arial, sans-serif; font-size: 8px; padding: 5px; max-width: 800px; margin: auto; line-height: 1.1;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px;">
             <div style="flex: 1;">
-              <p style="font-weight: bold; font-size: 10px;">CMS-2013 DOOEL DEBAR</p>
-              <p>Ul: "Bratstvo Edinstvo" Br.5 - Debar</p>
-              <p>Email: <a href="mailto:nertil.osmani@gmail.com">nertil.osmani@gmail.com</a></p>
-              <p>Mob: +38971211066</p>
-              <p>Smetka Br: 200002635881387</p>
-              <p>Deponent banka: "Stopanska Banka A.D - Skopje"</p>
-              <p>Danocen Br: 4008013501985</p>
+                <p style="font-weight: bold; font-size: 9px; margin: 0; padding: 0;">CMS-2013 DOOEL DEBAR</p>
+                <p style="margin: 0; padding: 0;">Ul: "Bratstvo Edinstvo" Br.5 - Debar</p>
+                <p style="margin: 0; padding: 0;">Email: <a href="mailto:nertil.osmani@gmail.com">nertil.osmani@gmail.com</a></p>
+                <p style="margin: 0; padding: 0;">Mob: +38971211066</p>
+                <p style="margin: 0; padding: 0;">Smetka Br: 200002635881387</p>
+                <p style="margin: 0; padding: 0;">Deponent banka: "Stopanska Banka A.D - Skopje"</p>
+                <p style="margin: 0; padding: 0;">Danocen Br: 4008013501985</p>
             </div>
             <div style="flex-shrink: 0; text-align: right;">
-              ${this.logoBase64 ? `<img src="${this.logoBase64}" alt="Logo" style="height: 50px;" />` : ''}
+                ${this.logoBase64 ? `<img src="${this.logoBase64}" alt="Logo" style="height: 50px;" />` : ''}
             </div>
-          </div>
-
-          <hr />
-
-          <h3 style="text-align:center; font-size: 11px; margin: 8px 0;">📄 KONTRATË PËR DHËNIEN ME QIRA TË TROTINETIT ELEKTRIK</h3>
-
-          <p><strong>Qiradhënësi:</strong><br>
-          Emri: CMS-2013 DOOEL DEBAR<br>
-          Adresa: "Bratstvo Edinstvo" Br.5 - Debar<br>
-          Nr. personal (EMBG): 4008013501985<br>
-          Telefon: +38971211066</p>
-
-          <p><strong>Qiramarrësi:</strong><br>
-          Emri: ${formData.name}<br>
-          Nr. Letërnjoftimi / Pasaportës: ${formData.embg}<br>
-          Adresa: ${formData.address}<br>
-          Telefon: ${formData.phone}</p>
-
-          <hr />
-
-          <p><strong>Neni 1 – Objekti i Kontratës</strong><br>
-          Qiradhënësi i jep me qira qiramarrësit një trotinet elektrik...</p>
-
-          <p><strong>Neni 2 – Periudha e Marrjes me Qira</strong><br>
-          Data dhe ora e marrjes: ${meetingDateStr}<br>
-          Koha totale: ${formData.nrOfDays} ditë</p>
-
-          <p><strong>Neni 3 – Çmimi dhe Pagesa</strong><br>
-          Pagesa: para dorëzimit<br>
-          Totali: ${formData.amount} denarë</p>
-
-          <p><strong>Neni 4 – Garancia</strong><br>
-          Garancia: ${formData.depositDamage || '0'} denarë</p>
-
-          <p><strong>Neni 5 – Detyrimet e Qiramarrësit</strong><br>
-          1. E përdor trotinetin me kujdes...<br>
-          2. Është përgjegjës për dëmtime...<br>
-          3. Në rast aksidenti...<br>
-          4. Nuk e jep palës së tretë...</p>
-
-          <p><strong>Neni 6 – Dorëzimi dhe Kontrolli</strong><br>
-          Aksesorë: ${accessoriesStr}</p>
-
-          <p><strong>Neni 7 – Zgjidhja e Mosmarrëveshjeve</strong><br>
-          Mosmarrëveshjet zgjidhen në Gjykatën Themelore në Dibër.</p>
-
-          <p><strong>Neni 8 – Dispozita përfundimtare</strong><br>
-          Kontrata në 2 kopje. Nënshkrimi nënkupton pranimin e kushteve.</p>
-
-          <hr />
-
-          <div style="display: flex; justify-content: space-between; margin-top: 20px;">
-            <div style="text-align: center;">
-              <p>Qiradhënësi</p>
-              <p style="margin-top: 30px;">____________________</p>
-            </div>
-            <div style="text-align: center;">
-              <p>Qiramarrësi</p>
-              <p style="margin-top: 30px;">____________________</p>
-            </div>
-          </div>
-
-          <p style="text-align: right; margin-top: 10px;">Data: ${currentDate}</p>
-
-          <p style="margin-top: 10px;">📌 Nr. i trotinetit: ${formData.scooterSerialNumber}</p>
-          <p>📌 Gjendja vizuale: ____________________________</p>
         </div>
+
+        <hr style="margin: 3px 0; border: none; border-top: 1px solid #ccc;" />
+
+        <h3 style="text-align:center; font-size: 10px; margin: 5px 0;">📄 KONTRATË PËR DHËNIEN ME QIRA TË TROTINETIT ELEKTRIK</h3>
+
+        <p style="margin: 3px 0;"><strong>Qiradhënësi:</strong><br>
+        Emri: CMS-2013 DOOEL DEBAR<br>
+        Adresa: "Bratstvo Edinstvo" Br.5 - Debar<br>
+        Nr. personal (EMBG): 4008013501985<br>
+        Telefon: +38971211066</p>
+
+        <p style="margin: 3px 0;"><strong>Qiramarrësi:</strong><br>
+        Emri: ${formData.name}<br>
+        Nr. Letërnjoftimi / Pasaportës: ${formData.embg}<br>
+        Adresa: ${formData.address}<br>
+        Telefon: ${formData.phone}</p>
+
+        <hr style="margin: 3px 0; border: none; border-top: 1px solid #ccc;" />
+
+        <p style="margin: 3px 0;"><strong>Neni 1 – Objekti i Kontratës</strong><br>
+        Qiradhënësi i jep me qira qiramarrësit një trotinet elektrik...</p>
+
+        <p style="margin: 3px 0;"><strong>Neni 2 – Periudha e Marrjes me Qira</strong><br>
+        Data dhe ora e marrjes: ${meetingDateStr}<br>
+        Koha totale: ${formData.nrOfDays} ditë</p>
+
+        <p style="margin: 3px 0;"><strong>Neni 3 – Çmimi dhe Pagesa</strong><br>
+        Pagesa: para dorëzimit<br>
+        Totali: ${formData.amount} denarë</p>
+
+        <p style="margin: 3px 0;"><strong>Neni 4 – Garancia</strong><br>
+        Garancia: ${formData.depositDamage || '0'} denarë</p>
+
+        <p style="margin: 3px 0;"><strong>Neni 5 – Detyrimet e Qiramarrësit</strong><br>
+        1. E përdor trotinetin me kujdes...<br>
+        2. Është përgjegjës për dëmtime...<br>
+        3. Në rast aksidenti...<br>
+        4. Nuk e jep palës së tretë...</p>
+
+        <p style="margin: 3px 0;"><strong>Neni 6 – Dorëzimi dhe Kontrolli</strong><br>
+        Aksesorë: ${accessoriesStr}</p>
+
+        <p style="margin: 3px 0;"><strong>Neni 7 – Zgjidhja e Mosmarrëveshjeve</strong><br>
+        Mosmarrëveshjet zgjidhen në Gjykatën Themelore në Dibër.</p>
+
+        <p style="margin: 3px 0;"><strong>Neni 8 – Dispozita përfundimtare</strong><br>
+        Kontrata në 2 kopje. Nënshkrimi nënkupton pranimin e kushteve.</p>
+
+        <hr style="margin: 3px 0; border: none; border-top: 1px solid #ccc;" />
+
+        <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+            <div style="text-align: center;">
+                <p style="margin: 0;">Qiradhënësi</p>
+                ${this.signatureBase64 ? `<img src="${this.signatureBase64}" alt="Signature" style="height: 40px; max-width: 150px; margin: 5px 0;" />` : '<p style="margin-top: 20px;">____________________</p>'}
+            </div>
+            <div style="text-align: center;">
+                <p style="margin: 0;">Qiramarrësi</p>
+                <p style="margin-top: 20px;">____________________</p>
+            </div>
+        </div>
+
+        <p style="text-align: right; margin-top: 8px;">Data: ${currentDate}</p>
+
+        <p style="margin-top: 5px;">📌 Nr. i trotinetit: ${formData.scooterSerialNumber}</p>
+        <p style="margin: 0;">📌 Gjendja vizuale: ____________________________</p>
+    </div>
       `;
 
         // Reset form and reload data immediately (before opening print dialog)
@@ -579,4 +616,57 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
       event.preventDefault();
     }
   }
+
+/**
+ * Get the CSS class for date cell based on due date comparison
+ */
+getDateCellClass(meetingDate: any): string {
+  if (!meetingDate) return '';
+  
+  const today = new Date();
+  const dueDate = meetingDate.toDate ? meetingDate.toDate() : new Date(meetingDate);
+  
+  // Reset time to compare only dates
+  today.setHours(0, 0, 0, 0);
+  dueDate.setHours(0, 0, 0, 0);
+  
+  const timeDiff = dueDate.getTime() - today.getTime();
+  const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+  
+  if (daysDiff < 0) {
+    // Overdue - red background
+    return 'overdue-date';
+  } else if (daysDiff === 1) {
+    // Due tomorrow - yellow background
+    return 'due-tomorrow';
+  }
+  
+  return '';
+}
+
+/**
+ * Get the CSS class for the entire row based on due date
+ */
+getRowClass(element: any): string {
+  if (!element.meetingDate) return '';
+  
+  const today = new Date();
+  const dueDate = element.meetingDate.toDate ? element.meetingDate.toDate() : new Date(element.meetingDate);
+  
+  // Reset time to compare only dates
+  today.setHours(0, 0, 0, 0);
+  dueDate.setHours(0, 0, 0, 0);
+  
+  const timeDiff = dueDate.getTime() - today.getTime();
+  const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+  
+  if (daysDiff < 0) {
+    return 'overdue-row';
+  } else if (daysDiff === 1) {
+    return 'due-tomorrow-row';
+  }
+  
+  return '';
+}
+
 }

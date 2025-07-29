@@ -23,3 +23,86 @@
 .mat-datepicker-toggle {
   margin-right: 0.25rem;
 }
+// Add these styles to your home-component.component.scss file
+
+// Date cell specific styling
+.overdue-date {
+  background-color: #fee2e2 !important; // Light red background
+  color: #dc2626 !important; // Dark red text
+  font-weight: 600;
+  border-left: 4px solid #dc2626;
+}
+
+.due-tomorrow {
+  background-color: #fef3c7 !important; // Light yellow background
+  color: #d97706 !important; // Dark orange text
+  font-weight: 600;
+  border-left: 4px solid #f59e0b;
+}
+
+// Row-level styling (optional - applies to entire row)
+.overdue-row {
+  background-color: #fef2f2 !important; // Very light red
+  
+  &:hover {
+    background-color: #fee2e2 !important; // Slightly darker on hover
+  }
+}
+
+.due-tomorrow-row {
+  background-color: #fffbeb !important; // Very light yellow
+  
+  &:hover {
+    background-color: #fef3c7 !important; // Slightly darker on hover
+  }
+}
+
+// Optional: Add some visual indicators
+.overdue-date::before {
+  content: "🚨 ";
+  margin-right: 4px;
+}
+
+.due-tomorrow::before {
+  content: "⚠️ ";
+  margin-right: 4px;
+}
+
+// Make sure the Material table respects our custom colors
+::ng-deep .mat-table {
+  .overdue-date,
+  .due-tomorrow {
+    border-radius: 4px;
+    padding: 8px !important;
+  }
+}
+
+// Optional: Add a legend or indicator
+.date-legend {
+  display: flex;
+  gap: 16px;
+  margin: 16px 0;
+  font-size: 12px;
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+    }
+    
+    .overdue-color {
+      background-color: #fee2e2;
+      border: 1px solid #dc2626;
+    }
+    
+    .due-tomorrow-color {
+      background-color: #fef3c7;
+      border: 1px solid #f59e0b;
+    }
+  }
+}
