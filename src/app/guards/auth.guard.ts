@@ -1,24 +1,24 @@
+// src/app/guards/auth.guard.ts
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
-import { Auth, onAuthStateChanged } from '@angular/fire/auth';
-import { Observable } from 'rxjs';
+import { map, filter, take } from 'rxjs/operators';
+import { AuthServiceService } from '../services/auth.service.service';
 
 export const authGuard: CanActivateFn = (route, state) => {
-  const auth = inject(Auth);
+  const authService = inject(AuthServiceService);
   const router = inject(Router);
 
-  return new Observable<boolean>(observer => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // User is authenticated
-        observer.next(true);
+  // Wait for auth to be initialized, then check authentication
+  return authService.authInitialized$.pipe(
+    filter(initialized => initialized), // Wait until auth is initialized
+    take(1), // Take only the first emission
+    map(() => {
+      if (authService.isAuthenticated()) {
+        return true;
       } else {
-        // User is not authenticated, redirect to login
         router.navigate(['/login']);
-        observer.next(false);
+        return false;
       }
-      observer.complete();
-      unsubscribe();
-    });
-  });
+    })
+  );
 };

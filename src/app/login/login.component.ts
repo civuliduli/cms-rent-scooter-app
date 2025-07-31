@@ -2,11 +2,11 @@ import { Component, inject } from '@angular/core';
 import { FormGroup, FormControl, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { Auth, signInWithEmailAndPassword } from '@angular/fire/auth';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { AuthServiceService } from '../services/auth.service.service';
 
 @Component({
   selector: 'app-login',
@@ -23,7 +23,7 @@ import { MatCardModule } from '@angular/material/card';
   styleUrls: ['./login.component.scss']
 })
 export class LoginComponent {
-  private auth = inject(Auth);
+  private authService = inject(AuthServiceService);
   private router = inject(Router);
   
   isLoading = false;
@@ -42,8 +42,8 @@ export class LoginComponent {
       const { email, password } = this.loginForm.value;
       
       try {
-        await signInWithEmailAndPassword(this.auth, email!, password!);
-        this.router.navigate(['/home']);
+        await this.authService.login(email!, password!);
+        // Navigation is handled in the service
       } catch (error: any) {
         this.errorMessage = this.getErrorMessage(error.code);
       } finally {
@@ -66,6 +66,4 @@ export class LoginComponent {
         return 'Login failed. Please try again.';
     }
   }
-
-  
 }

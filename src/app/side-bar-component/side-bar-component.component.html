@@ -1,29 +1,53 @@
 <mat-drawer-container class="example-container" autosize>
-  <mat-drawer #drawer class="example-sidenav" mode="side" [opened]="showSidebar">
+  <mat-drawer #drawer class="example-sidenav bg-gray-900" mode="side" [opened]="showSidebar">
     <div class="flex flex-col h-full justify-between px-8 py-8">
-      <!-- Top Navigation Links -->
-      <div class="gap-4 flex flex-col">
-        <a routerLink="/home" class="text-white text-xl">Home</a>
-        <a routerLink="/registerScooters" class="text-white text-xl">Register Scooter</a>
-        <a routerLink="/generalDatabase" class="text-white text-xl">General Database</a>
+
+      <!-- 🔷 Logo and Navigation -->
+      <div class="flex flex-col items-center text-center space-y-4">
+        <!-- Logo and Title -->
+        <div>
+          <img src="cms.png" alt="CMS Logo" class="w-24 h-auto mb-2" />
+          <h1 class="text-white text-base font-semibold leading-tight">
+            CMS Scooter Rental App
+          </h1>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="flex flex-col gap-3 w-full items-start mt-4">
+          <a routerLink="/home"
+             routerLinkActive="text-pink-500 border-l-4 border-pink-500 pl-2"
+             class="text-white text-lg hover:text-pink-400 transition-all duration-200">
+            Home
+          </a>
+          <a routerLink="/registerScooters"
+             routerLinkActive="text-pink-500 border-l-4 border-pink-500 pl-2"
+             class="text-white text-lg hover:text-pink-400 transition-all duration-200">
+            Register Scooter
+          </a>
+          <a routerLink="/generalDatabase"
+             routerLinkActive="text-pink-500 border-l-4 border-pink-500 pl-2"
+             class="text-white text-lg hover:text-pink-400 transition-all duration-200">
+            General Database
+          </a>
+        </div>
       </div>
-      
-      <!-- Logout Section at Bottom -->
+
+      <!-- 🔻 Logout Section -->
       <div class="flex items-center gap-2">
         <img src="/logout-2-svgrepo-com.svg" alt="Logout Icon" class="w-6 h-6" />
-        <button (click)="onLogout()" class="text-white text-xl logout-btn">
+        <button (click)="onLogout()" class="text-white text-lg hover:text-pink-400 transition-all duration-200">
           Logout
         </button>
       </div>
     </div>
   </mat-drawer>
-  
+
   <div class="example-sidenav-content">
-    <!-- 🍔 Hamburger Menu Button - only show when sidebar should be visible -->
+    <!-- 🍔 Hamburger Menu Button -->
     <button *ngIf="showSidebar" mat-icon-button (click)="drawer.toggle()" class="m-4">
       <mat-icon>menu</mat-icon>
     </button>
-    
+
     <!-- Routed Content -->
     <router-outlet></router-outlet>
   </div>

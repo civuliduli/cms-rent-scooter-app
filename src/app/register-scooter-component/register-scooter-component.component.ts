@@ -19,6 +19,7 @@ interface Scooter {
   scooterQuantity: number;
   createdAt: Date;
   updatedAt: Date;
+  pricePerModel: number;
 }
 
 @Component({
@@ -44,7 +45,7 @@ export class RegisterScooterComponentComponent implements OnInit {
   private firestore: Firestore = inject(Firestore);
   
   scooters: Scooter[] = [];
-  displayedColumns: string[] = ['scooterModel', 'scooterSerialNumber', 'scooterQuantity', 'createdAt', 'actions'];
+  displayedColumns: string[] = ['scooterModel', 'scooterSerialNumber', 'scooterQuantity', 'createdAt', 'pricePerModel', 'actions'];
   isLoading = false;
 
   // Updated form to match your HTML template
@@ -52,6 +53,11 @@ export class RegisterScooterComponentComponent implements OnInit {
     scooterModel: new FormControl('', Validators.required),
     scooterSerialNumber: new FormControl('', Validators.required),
     scooterQuantity: new FormControl('', [
+      Validators.required,
+      Validators.pattern('^[0-9]*$'),
+      Validators.min(1)
+    ]),
+    pricePerModel: new FormControl('', [
       Validators.required,
       Validators.pattern('^[0-9]*$'),
       Validators.min(1)

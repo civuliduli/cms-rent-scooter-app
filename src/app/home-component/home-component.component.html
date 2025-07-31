@@ -63,6 +63,15 @@
       </p>
     </div>
 
+        <!-- Scooter Price -->
+    <div class="col-span-6 sm:col-span-3">
+      <label for="priceOfScooter" class="block text-sm font-medium text-gray-700 mb-1">Price of scooter</label>
+      <input id="priceOfScooter" formControlName="priceOfScooter" type="text" readonly
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
+      <p *ngIf="form.get('priceOfScooter')?.invalid && form.get('priceOfScooter')?.touched"
+        class="text-red-500 text-sm mt-1">Scooter price is required.</p>
+    </div>
+
     <!-- Scooter Serial Number -->
     <div class="col-span-6 sm:col-span-3">
       <label for="scooterSerialNumber" class="block text-sm font-medium text-gray-700 mb-1">Scooter Serial
@@ -92,7 +101,7 @@
     <!-- Number of Days -->
     <div class="col-span-6 sm:col-span-3">
       <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Nr of days</label>
-      <input id="amount" formControlName="nrOfDays" type="number" pattern="[0-9]*" inputmode="numeric"
+      <input id="amount" formControlName="nrOfDays" type="number" readonly pattern="[0-9]*" inputmode="numeric"
         (keypress)="allowOnlyNumbers($event)"
         class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none" />
       <p *ngIf="form.get('nrOfDays')?.invalid && form.get('nrOfDays')?.touched" class="text-red-500 text-sm mt-1">Number
@@ -132,7 +141,7 @@
 
 <!-- Amount -->
 <div class="col-span-6 sm:col-span-3">
-  <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+  <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
   <div class="relative">
     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
       <span class="text-gray-500 text-sm font-medium">MKD</span>
@@ -165,66 +174,172 @@
     <mat-card-subtitle>All current rental records</mat-card-subtitle>
   </mat-card-header>
   <mat-card-content>
-    <table mat-table [dataSource]="rentals" class="mat-elevation-z8 w-full">
-      <!-- Columns defined here, same as your original -->
-      <ng-container matColumnDef="name">
-        <th mat-header-cell *matHeaderCellDef> Full Name </th>
-        <td mat-cell *matCellDef="let element"> {{element.name}} </td>
-      </ng-container>
-      <!-- Other columns -->
-      <ng-container matColumnDef="phone">
-        <th mat-header-cell *matHeaderCellDef> Phone </th>
-        <td mat-cell *matCellDef="let element"> {{element.phone}} </td>
-      </ng-container>
-      <ng-container matColumnDef="address">
-        <th mat-header-cell *matHeaderCellDef> Address </th>
-        <td mat-cell *matCellDef="let element"> {{element.address}} </td>
-      </ng-container>
-      <ng-container matColumnDef="embg">
-        <th mat-header-cell *matHeaderCellDef> EMBG </th>
-        <td mat-cell *matCellDef="let element"> {{element.embg}} </td>
-      </ng-container>
-      <ng-container matColumnDef="scooter">
-        <th mat-header-cell *matHeaderCellDef> Scooter </th>
-        <td mat-cell *matCellDef="let element">
-          {{element.scooterName || 'Unknown Scooter'}}
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="scooterSerialNr">
-        <th mat-header-cell *matHeaderCellDef> Scooter Serial Number </th>
-        <td mat-cell *matCellDef="let element">
-          {{element.scooterSerialNumber || 'N/A'}}
-        </td>
-      </ng-container>
-      <!-- Updated meetingDate column with color coding -->
-      <ng-container matColumnDef="meetingDate">
-        <th mat-header-cell *matHeaderCellDef> Due Date </th>
-        <td mat-cell *matCellDef="let element" [ngClass]="getDateCellClass(element.meetingDate)">
-          <span *ngIf="element.meetingDate as date">
-            {{ (date.toDate ? date.toDate() : date) | date:'MM/dd/yyyy' }}
-          </span>
-          <span *ngIf="!element.meetingDate">N/A</span>
-        </td>
-      </ng-container>
-      <ng-container matColumnDef="amount">
-        <th mat-header-cell *matHeaderCellDef> Amount </th>
-        <td mat-cell *matCellDef="let element"> {{element.amount}} </td>
-      </ng-container>
-      <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef> Actions </th>
-        <td mat-cell *matCellDef="let element">
-          <div class="flex space-x-2">
-            <button mat-button color="accent" (click)="finishRental(element)" [disabled]="!element.isRentActive"
-              class="text-sm">
-              Finish Rental
-            </button>
-          </div>
-        </td>
-      </ng-container>
+    <!-- Desktop Table View -->
+    <div class="hidden md:block">
+      <!-- Scrollable container for responsive table -->
+      <div style="overflow-x: auto;">
+        <table mat-table [dataSource]="rentals" class="mat-elevation-z8" style="min-width: 800px; width: 100%;">
+          <!-- Name Column -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef> Full Name </th>
+            <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+          </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <!-- Updated row with color coding -->
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
-    </table>
+          <!-- Phone Column -->
+          <ng-container matColumnDef="phone">
+            <th mat-header-cell *matHeaderCellDef> Phone </th>
+            <td mat-cell *matCellDef="let element"> {{element.phone}} </td>
+          </ng-container>
+
+          <!-- Address Column -->
+          <ng-container matColumnDef="address">
+            <th mat-header-cell *matHeaderCellDef> Address </th>
+            <td mat-cell *matCellDef="let element"> {{element.address}} </td>
+          </ng-container>
+
+          <!-- EMBG Column -->
+          <ng-container matColumnDef="embg">
+            <th mat-header-cell *matHeaderCellDef> EMBG </th>
+            <td mat-cell *matCellDef="let element"> {{element.embg}} </td>
+          </ng-container>
+
+          <!-- Scooter Name Column -->
+          <ng-container matColumnDef="scooter">
+            <th mat-header-cell *matHeaderCellDef> Scooter </th>
+            <td mat-cell *matCellDef="let element">
+              {{element.scooterName || 'Unknown Scooter'}}
+            </td>
+          </ng-container>
+
+          <!-- Scooter Price per Model -->
+          <ng-container matColumnDef="priceOfScooter">
+            <th mat-header-cell *matHeaderCellDef> Scooter price per model </th>
+            <td mat-cell *matCellDef="let element">
+              {{element.priceOfScooter || 'N/A'}}
+            </td>
+          </ng-container>
+
+          <!-- Scooter Serial Number Column -->
+          <ng-container matColumnDef="scooterSerialNr">
+            <th mat-header-cell *matHeaderCellDef> Scooter Serial Number </th>
+            <td mat-cell *matCellDef="let element">
+              {{element.scooterSerialNumber || 'N/A'}}
+            </td>
+          </ng-container>
+
+          <!-- Due Date Column with color coding -->
+          <ng-container matColumnDef="meetingDate">
+            <th mat-header-cell *matHeaderCellDef> Due Date </th>
+            <td mat-cell *matCellDef="let element" [ngClass]="getDateCellClass(element.meetingDate)">
+              <span *ngIf="element.meetingDate as date">
+                {{ (date.toDate ? date.toDate() : date) | date:'MM/dd/yyyy' }}
+              </span>
+              <span *ngIf="!element.meetingDate">N/A</span>
+            </td>
+          </ng-container>
+
+          <!-- Amount Column -->
+          <ng-container matColumnDef="amount">
+            <th mat-header-cell *matHeaderCellDef> Total Amount </th>
+            <td mat-cell *matCellDef="let element"> {{element.amount}} </td>
+          </ng-container>
+
+          <!-- Status Column -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef> Status </th>
+            <td mat-cell *matCellDef="let element">
+              <mat-chip [color]="element.isRentActive ? 'primary' : 'warn'" selected>
+                {{ element.isRentActive ? 'Active' : 'Finished' }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef> Actions </th>
+            <td mat-cell *matCellDef="let element">
+              <div class="flex space-x-2">
+                <button mat-button color="accent" (click)="finishRental(element)" [disabled]="!element.isRentActive" class="text-sm">
+                  Finish Rental
+                </button>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Table Headers and Rows -->
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Mobile Card View -->
+    <div class="block md:hidden space-y-4">
+      <mat-card *ngFor="let rental of rentals" class="shadow-sm" [ngClass]="getRowClass(rental)">
+        <mat-card-content class="p-4">
+          <div class="flex justify-between items-start mb-4 flex-wrap gap-2">
+            <h3 class="text-lg font-medium text-gray-800 flex-1 min-w-0">{{rental.name}}</h3>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <mat-chip [color]="rental.isRentActive ? 'primary' : 'warn'" selected>
+                {{ rental.isRentActive ? 'Active' : 'Finished' }}
+              </mat-chip>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Phone:</span>
+              <span class="text-gray-800 text-right break-words">{{rental.phone}}</span>
+            </div>
+
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Address:</span>
+              <span class="text-gray-800 text-right break-words">{{rental.address}}</span>
+            </div>
+
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">EMBG:</span>
+              <span class="text-gray-800 text-right break-words">{{rental.embg}}</span>
+            </div>
+
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Scooter:</span>
+              <span class="text-gray-800 text-right break-words">{{rental.scooterName || 'Unknown Scooter'}}</span>
+            </div>
+
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Scooter Price:</span>
+              <span class="text-gray-800 text-right break-words">{{rental.priceOfScooter || 'N/A'}}</span>
+            </div>
+
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Serial Number:</span>
+              <span class="text-gray-800 text-right break-words">{{rental.scooterSerialNumber || 'N/A'}}</span>
+            </div>
+
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Due Date:</span>
+              <span class="text-gray-800 text-right break-words" [ngClass]="getDateCellClass(rental.meetingDate)">
+                <span *ngIf="rental.meetingDate as date">
+                  {{ (date.toDate ? date.toDate() : date) | date:'MM/dd/yyyy' }}
+                </span>
+                <span *ngIf="!rental.meetingDate">N/A</span>
+              </span>
+            </div>
+
+            <div class="flex justify-between items-center py-3 -mx-4 px-4 bg-gray-50 rounded-b gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Total Amount:</span>
+              <span class="text-gray-800 font-semibold">{{rental.amount}} den.</span>
+            </div>
+
+            <div class="flex justify-center pt-3">
+              <button mat-button color="accent" (click)="finishRental(rental)" [disabled]="!rental.isRentActive" class="text-sm">
+                Finish Rental
+              </button>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
   </mat-card-content>
 </mat-card>

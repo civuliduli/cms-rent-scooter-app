@@ -2,7 +2,7 @@
 <div class="bg-white shadow-md rounded-lg p-8 mx-6 mt-6">
   <h2 class="text-2xl font-semibold mb-4 text-gray-800">Add New Scooter</h2>
   <form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid grid-cols-6 gap-6">
-    
+
     <!-- Scooter Model -->
     <div class="col-span-6 sm:col-span-3">
       <label class="block text-sm font-medium text-gray-700 mb-1" for="scooterModel">Scooter Model</label>
@@ -29,6 +29,18 @@
       />
       <p *ngIf="form.get('scooterSerialNumber')?.hasError('required') && form.get('scooterSerialNumber')?.touched"
          class="text-red-500 text-sm mt-1">Serial number is required.</p>
+    </div>
+
+        <div class="col-span-6 sm:col-span-3">
+      <label class="block text-sm font-medium text-gray-700 mb-1" for="pricePerModel">Price of model</label>
+      <input
+        type="text"
+        id="pricePerModel"
+        formControlName="pricePerModel"
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:ring-2 focus:ring-green-400 focus:outline-none"
+      />
+      <p *ngIf="form.get('pricePerModel')?.hasError('required') && form.get('pricePerModel')?.touched"
+         class="text-red-500 text-sm mt-1">Price per model is required.</p>
     </div>
 
     <!-- Quantity -->
@@ -87,48 +99,97 @@
       <p>No scooters registered yet. Add your first scooter above!</p>
     </div>
 
-    <div *ngIf="!isLoading && scooters.length > 0" class="mat-elevation-z8">
-      <table mat-table [dataSource]="scooters" class="mat-table">
-        <!-- Model Column -->
-        <ng-container matColumnDef="scooterModel">
-          <th mat-header-cell *matHeaderCellDef>Model</th>
-          <td mat-cell *matCellDef="let scooter">{{scooter.scooterModel}}</td>
-        </ng-container>
+    <!-- Desktop Table View -->
+    <div *ngIf="!isLoading && scooters.length > 0" class="mat-elevation-z8 hidden md:block">
+      <!-- Scrollable table container -->
+      <div style="overflow-x: auto;">
+        <table mat-table [dataSource]="scooters" class="mat-table" style="min-width: 700px; width: 100%;">
+          <!-- Model Column -->
+          <ng-container matColumnDef="scooterModel">
+            <th mat-header-cell *matHeaderCellDef>Model</th>
+            <td mat-cell *matCellDef="let scooter">{{scooter.scooterModel}}</td>
+          </ng-container>
 
-        <!-- Serial Number Column -->
-        <ng-container matColumnDef="scooterSerialNumber">
-          <th mat-header-cell *matHeaderCellDef>Serial Number</th>
-          <td mat-cell *matCellDef="let scooter">{{scooter.scooterSerialNumber}}</td>
-        </ng-container>
+          <!-- Serial Number Column -->
+          <ng-container matColumnDef="scooterSerialNumber">
+            <th mat-header-cell *matHeaderCellDef>Serial Number</th>
+            <td mat-cell *matCellDef="let scooter">{{scooter.scooterSerialNumber}}</td>
+          </ng-container>
 
-        <!-- Quantity Column -->
-        <ng-container matColumnDef="scooterQuantity">
-          <th mat-header-cell *matHeaderCellDef>Quantity</th>
-          <td mat-cell *matCellDef="let scooter">{{scooter.scooterQuantity}}</td>
-        </ng-container>
+          <!-- Quantity Column -->
+          <ng-container matColumnDef="scooterQuantity">
+            <th mat-header-cell *matHeaderCellDef>Quantity</th>
+            <td mat-cell *matCellDef="let scooter">{{scooter.scooterQuantity}}</td>
+          </ng-container>
 
-        <!-- Created Date Column -->
-        <ng-container matColumnDef="createdAt">
-          <th mat-header-cell *matHeaderCellDef>Created Date</th>
-          <td mat-cell *matCellDef="let scooter">{{scooter.createdAt | date:'short'}}</td>
-        </ng-container>
+          <!-- Price Per Model Column -->
+          <ng-container matColumnDef="pricePerModel">
+            <th mat-header-cell *matHeaderCellDef>Price of model</th>
+            <td mat-cell *matCellDef="let scooter">{{scooter.pricePerModel}}</td>
+          </ng-container>
 
-        <!-- Actions Column -->
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>Actions</th>
-          <td mat-cell *matCellDef="let scooter">
-            <button mat-icon-button 
-                    color="warn"
-                    (click)="deleteScooter(scooter.id!, scooter.scooterModel)"
-                    matTooltip="Delete scooter">
-              <mat-icon>delete</mat-icon>
-            </button>
-          </td>
-        </ng-container>
+          <!-- Created Date Column -->
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef>Created Date</th>
+            <td mat-cell *matCellDef="let scooter">{{scooter.createdAt | date:'short'}}</td>
+          </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let scooter">
+              <button mat-icon-button 
+                      color="warn"
+                      (click)="deleteScooter(scooter.id!, scooter.scooterModel)"
+                      matTooltip="Delete scooter">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Mobile Card View -->
+    <div *ngIf="!isLoading && scooters.length > 0" class="block md:hidden space-y-4">
+      <mat-card *ngFor="let scooter of scooters" class="shadow-sm">
+        <mat-card-content class="p-4">
+          <div class="flex justify-between items-start mb-4 flex-wrap gap-2">
+            <h3 class="text-lg font-medium text-gray-800 flex-1 min-w-0">{{scooter.scooterModel}}</h3>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <button mat-icon-button color="warn" (click)="deleteScooter(scooter.id!, scooter.scooterModel)"
+                matTooltip="Delete scooter" class="ml-2">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Serial Number:</span>
+              <span class="text-gray-800 text-right break-words">{{scooter.scooterSerialNumber}}</span>
+            </div>
+
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Quantity:</span>
+              <span class="text-gray-800 text-right break-words">{{scooter.scooterQuantity}}</span>
+            </div>
+
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Price per Model:</span>
+              <span class="text-gray-800 text-right break-words">{{scooter.pricePerModel | number:'1.2-2'}} den.</span>
+            </div>
+
+            <div class="flex justify-between items-center py-3 -mx-4 px-4 bg-gray-50 rounded-b gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Created Date:</span>
+              <span class="text-gray-800 font-semibold">{{scooter.createdAt | date:'short'}}</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
     </div>
   </mat-card-content>
 </mat-card>
