@@ -310,10 +310,8 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
 
   async loadImageAsBase64() {
     try {
-      let response = await fetch('assets/cms.png');
-      if (!response.ok) {
-        response = await fetch('/cms.png');
-      }
+      // Since your images are in public/ folder, they'll be at the root after build
+      const response = await fetch('/cms.png');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -339,13 +337,11 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Load signature from assets
+  // Load signature from public folder
   async loadSignature() {
     try {
-      let response = await fetch('assets/signature.png');
-      if (!response.ok) {
-        response = await fetch('/signature.png');
-      }
+      // Since your signature is in public/ folder, it'll be at the root after build
+      const response = await fetch('/signature.png');
       if (!response.ok) {
         console.log('No signature found - will use default line');
         return;
