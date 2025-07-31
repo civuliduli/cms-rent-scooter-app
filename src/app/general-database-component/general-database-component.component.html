@@ -1,70 +1,131 @@
-<mat-card style="margin: 20px;">
+<mat-card class="m-2 sm:m-5">
   <mat-card-header>
     <mat-card-title>Finished Rentals</mat-card-title>
     <mat-card-subtitle>Only rentals that have been completed</mat-card-subtitle>
   </mat-card-header>
+
   <mat-card-content>
 
-    <div *ngIf="isLoading" style="text-align:center; padding:20px;">
+    <div *ngIf="isLoading" class="text-center p-5">
       <mat-spinner></mat-spinner>
     </div>
 
-    <table *ngIf="!isLoading" mat-table [dataSource]="paginatedData" class="mat-elevation-z8 w-full">
+    <!-- Desktop Table View with horizontal scroll -->
+    <div *ngIf="!isLoading" class="hidden md:block">
+      <div style="overflow-x: auto;">
+        <table mat-table [dataSource]="paginatedData" class="mat-elevation-z8" style="min-width: 800px; width: 100%;">
+          <!-- Name -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef> Full Name </th>
+            <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+          </ng-container>
 
-      <!-- Name -->
-      <ng-container matColumnDef="name">
-        <th mat-header-cell *matHeaderCellDef> Full Name </th>
-        <td mat-cell *matCellDef="let element"> {{element.name}} </td>
-      </ng-container>
+          <!-- Phone -->
+          <ng-container matColumnDef="phone">
+            <th mat-header-cell *matHeaderCellDef> Phone </th>
+            <td mat-cell *matCellDef="let element"> {{element.phone}} </td>
+          </ng-container>
 
-      <!-- Phone -->
-      <ng-container matColumnDef="phone">
-        <th mat-header-cell *matHeaderCellDef> Phone </th>
-        <td mat-cell *matCellDef="let element"> {{element.phone}} </td>
-      </ng-container>
+          <!-- EMBG -->
+          <ng-container matColumnDef="embg">
+            <th mat-header-cell *matHeaderCellDef> EMBG </th>
+            <td mat-cell *matCellDef="let element"> {{element.embg}} </td>
+          </ng-container>
 
-      <ng-container matColumnDef="embg">
-        <th mat-header-cell *matHeaderCellDef> EMBG </th>
-        <td mat-cell *matCellDef="let element"> {{element.embg}} </td>
-      </ng-container>
+          <!-- Meeting Date -->
+          <ng-container matColumnDef="meetingDate">
+            <th mat-header-cell *matHeaderCellDef> Meeting Date </th>
+            <td mat-cell *matCellDef="let element">
+              {{ formatMeetingDate(element.meetingDate) }}
+            </td>
+          </ng-container>
 
-      <!-- Meeting Date -->
-      <ng-container matColumnDef="meetingDate">
-        <th mat-header-cell *matHeaderCellDef> Meeting Date </th>
-        <td mat-cell *matCellDef="let element">
-          {{ formatMeetingDate(element.meetingDate) }}
-        </td>
-      </ng-container>
+          <!-- Amount -->
+          <ng-container matColumnDef="amount">
+            <th mat-header-cell *matHeaderCellDef> Amount </th>
+            <td mat-cell *matCellDef="let element">
+              {{element.amount | number:'1.2-2'}} den.
+            </td>
+          </ng-container>
 
-      <!-- Amount -->
-      <ng-container matColumnDef="amount">
-        <th mat-header-cell *matHeaderCellDef> Amount </th>
-        <td mat-cell *matCellDef="let element"> {{element.amount | number:'1.2-2'}} den. </td>
-      </ng-container>
+          <!-- Rental Status -->
+          <ng-container matColumnDef="isRentActive">
+            <th mat-header-cell *matHeaderCellDef> Status </th>
+            <td mat-cell *matCellDef="let element">
+              <mat-chip [color]="element.isRentActive ? 'primary' : 'warn'" selected>
+                {{ element.isRentActive ? 'Active' : 'Finished' }}
+              </mat-chip>
+            </td>
+          </ng-container>
 
-      <!-- Rental Status -->
-      <ng-container matColumnDef="isRentActive">
-        <th mat-header-cell *matHeaderCellDef> Status </th>
-        <td mat-cell *matCellDef="let element">
-          <mat-chip [color]="element.isRentActive ? 'primary' : 'warn'" selected>
-            {{ element.isRentActive ? 'Active' : 'Finished' }}
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let rental">
+              <button mat-icon-button color="warn" (click)="deleteRental(rental.id!, rental.name)"
+                matTooltip="Delete rental">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
+    </div>
+
+<!-- Mobile Card View -->
+<div *ngIf="!isLoading" class="block md:hidden space-y-4">
+  <mat-card *ngFor="let rental of paginatedData" class="shadow-sm">
+    <mat-card-content class="p-4">
+      <div class="flex justify-between items-start mb-4 flex-wrap gap-2">
+        <h3 class="text-lg font-medium text-gray-800 flex-1 min-w-0">{{rental.name}}</h3>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <mat-chip [color]="rental.isRentActive ? 'primary' : 'warn'" selected>
+            {{ rental.isRentActive ? 'Active' : 'Finished' }}
           </mat-chip>
-        </td>
-      </ng-container>
+          <button mat-icon-button color="warn" (click)="deleteRental(rental.id!, rental.name)"
+            matTooltip="Delete rental" class="ml-2">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+      </div>
 
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-    </table>
+      <div class="space-y-3">
+        <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+          <span class="font-medium text-gray-600 flex-shrink-0">Phone:</span>
+          <span class="text-gray-800 text-right break-words">{{rental.phone}}</span>
+        </div>
 
+        <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+          <span class="font-medium text-gray-600 flex-shrink-0">EMBG:</span>
+          <span class="text-gray-800 text-right break-words">{{rental.embg}}</span>
+        </div>
+
+        <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+          <span class="font-medium text-gray-600 flex-shrink-0">Meeting Date:</span>
+          <span class="text-gray-800 text-right break-words">{{ formatMeetingDate(rental.meetingDate) }}</span>
+        </div>
+
+        <div class="flex justify-between items-center py-3 -mx-4 px-4 bg-gray-50 rounded-b gap-3">
+          <span class="font-medium text-gray-600 flex-shrink-0">Amount:</span>
+          <span class="text-gray-800 font-semibold">{{rental.amount | number:'1.2-2'}} den.</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+    <!-- Paginator -->
     <mat-paginator [length]="rentals.length" [pageSize]="pageSize" [pageSizeOptions]="[5, 10, 20]"
-      (page)="onPageChange($event)">
+      (page)="onPageChange($event)" class="mt-4">
     </mat-paginator>
 
-    <!-- Total Amount Display -->
-    <div *ngIf="!isLoading" style="margin-top: 20px; padding: 16px; background-color: #f5f5f5; border-radius: 4px;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-weight: 500; font-size: 16px;">Total Amount (All Finished Rentals):</span>
-        <span style="font-weight: bold; font-size: 18px; color: #1976d2;">{{ getTotalAmount() | number:'1.2-2' }} den.</span>
+    <!-- Total Amount -->
+    <div *ngIf="!isLoading" class="mt-5 p-4 bg-gray-50 rounded">
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+        <span class="font-medium text-base">Total Amount (All Finished Rentals):</span>
+        <span class="font-bold text-lg text-blue-600">{{ getTotalAmount() | number:'1.2-2' }} den.</span>
       </div>
     </div>
 

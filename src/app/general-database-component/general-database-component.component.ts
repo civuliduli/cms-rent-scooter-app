@@ -1,11 +1,13 @@
-import { Component, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Firestore, collection, getDocs } from '@angular/fire/firestore';
+import { Firestore, Unsubscribe, collection, deleteDoc, doc, getDocs, onSnapshot } from '@angular/fire/firestore';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
+
 
 @Component({
   selector: 'app-general-database',
@@ -16,15 +18,18 @@ import { MatChipsModule } from '@angular/material/chips';
     MatPaginatorModule,
     MatCardModule,
     MatProgressSpinnerModule,
-    MatChipsModule
+    MatChipsModule,
+    MatIcon
   ],
   templateUrl: './general-database-component.component.html',
   styleUrls: ['./general-database-component.component.scss']
 })
-export class GeneralDatabaseComponent implements OnInit {
+export class GeneralDatabaseComponent implements OnInit, OnDestroy {
+
   private firestore: Firestore = inject(Firestore);
+  private unsubscribe: Unsubscribe | null = null;
   rentals: any[] = [];
-  displayedColumns: string[] = ['name', 'phone', 'embg', 'meetingDate', 'amount', 'isRentActive'];
+  displayedColumns: string[] = ['name', 'phone', 'embg', 'meetingDate', 'amount', 'isRentActive', 'actions'];
   paginatedData: any[] = [];
   pageSize = 5;
   pageIndex = 0;
@@ -33,22 +38,35 @@ export class GeneralDatabaseComponent implements OnInit {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
   async ngOnInit() {
-    await this.loadRentals();
+    this.loadRentalsRealtime();
   }
 
-  async loadRentals() {
-    try {
-      const rentalsSnapshot = await getDocs(collection(this.firestore, 'rentals'));
-      this.rentals = rentalsSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter((rental: any) => rental.isRentActive === false); // 👈 Only finished rentals
-
-      this.updatePaginatedData();
-      this.isLoading = false;
-    } catch (error) {
-      console.error('Error loading rentals:', error);
-      this.isLoading = false;
+  ngOnDestroy() {
+    // Clean up the subscription
+    if (this.unsubscribe) {
+      this.unsubscribe();
     }
+  }
+
+  loadRentalsRealtime() {
+    this.isLoading = true;
+
+    // Set up real-time listener
+    this.unsubscribe = onSnapshot(
+      collection(this.firestore, 'rentals'),
+      (snapshot) => {
+        this.rentals = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter((rental: any) => rental.isRentActive === false);
+
+        this.updatePaginatedData();
+        this.isLoading = false;
+      },
+      (error) => {
+        console.error('Error loading rentals:', error);
+        this.isLoading = false;
+      }
+    );
   }
 
   updatePaginatedData() {
@@ -75,4 +93,18 @@ export class GeneralDatabaseComponent implements OnInit {
       return total + amount;
     }, 0);
   }
+
+  async deleteRental(rentalId: string, name: string) {
+    if (confirm(`Are you sure you want to delete the rental of "${name}"?`)) {
+      try {
+        const rentalDocRef = doc(this.firestore, 'rentals', rentalId);
+        await deleteDoc(rentalDocRef);
+        // No need to manually update - the real-time listener will handle it
+      } catch (error) {
+        console.error('Error deleting rental:', error);
+        alert('Error deleting rental. Please try again.');
+      }
+    }
+  }
+
 }
