@@ -128,6 +128,16 @@
             <td mat-cell *matCellDef="let scooter">{{scooter.pricePerModel}}</td>
           </ng-container>
 
+          <!-- Availability Status Column -->
+          <ng-container matColumnDef="availability">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let scooter">
+              <mat-chip [color]="getAvailabilityColor(scooter)" selected>
+                {{ getAvailabilityText(scooter) }}
+              </mat-chip>
+            </td>
+          </ng-container>
+
           <!-- Created Date Column -->
           <ng-container matColumnDef="createdAt">
             <th mat-header-cell *matHeaderCellDef>Created Date</th>
@@ -148,18 +158,21 @@
           </ng-container>
 
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;" [ngClass]="getRowClass(row)"></tr>
         </table>
       </div>
     </div>
 
     <!-- Mobile Card View -->
     <div *ngIf="!isLoading && scooters.length > 0" class="block md:hidden space-y-4">
-      <mat-card *ngFor="let scooter of scooters" class="shadow-sm">
+      <mat-card *ngFor="let scooter of scooters" class="shadow-sm" [ngClass]="getRowClass(scooter)">
         <mat-card-content class="p-4">
           <div class="flex justify-between items-start mb-4 flex-wrap gap-2">
             <h3 class="text-lg font-medium text-gray-800 flex-1 min-w-0">{{scooter.scooterModel}}</h3>
             <div class="flex items-center gap-2 flex-shrink-0">
+              <mat-chip [color]="getAvailabilityColor(scooter)" selected>
+                {{ getAvailabilityText(scooter) }}
+              </mat-chip>
               <button mat-icon-button color="warn" (click)="deleteScooter(scooter.id!, scooter.scooterModel)"
                 matTooltip="Delete scooter" class="ml-2">
                 <mat-icon>delete</mat-icon>
@@ -181,6 +194,13 @@
             <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
               <span class="font-medium text-gray-600 flex-shrink-0">Price per Model:</span>
               <span class="text-gray-800 text-right break-words">{{scooter.pricePerModel | number:'1.2-2'}} den.</span>
+            </div>
+
+            <div class="flex justify-between items-center py-2 border-b border-gray-100 gap-3">
+              <span class="font-medium text-gray-600 flex-shrink-0">Status:</span>
+              <mat-chip [color]="getAvailabilityColor(scooter)" selected>
+                {{ getAvailabilityText(scooter) }}
+              </mat-chip>
             </div>
 
             <div class="flex justify-between items-center py-3 -mx-4 px-4 bg-gray-50 rounded-b gap-3">
