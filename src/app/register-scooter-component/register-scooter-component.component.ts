@@ -10,6 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatChipsModule } from '@angular/material/chips'; // Add this import
 import { Firestore, collection, addDoc, collectionData, doc, deleteDoc } from '@angular/fire/firestore';
 
 interface Scooter {
@@ -20,6 +21,7 @@ interface Scooter {
   createdAt: Date;
   updatedAt: Date;
   pricePerModel: number;
+  isScooterAvailable?: boolean;
 }
 
 @Component({
@@ -36,16 +38,18 @@ interface Scooter {
     MatButtonModule,
     MatIconModule,
     MatCardModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatChipsModule // Add this to imports
   ],
   templateUrl: './register-scooter-component.component.html',
   styleUrl: './register-scooter-component.component.scss'
 })
 export class RegisterScooterComponentComponent implements OnInit {
   private firestore: Firestore = inject(Firestore);
-  
+
   scooters: Scooter[] = [];
-  displayedColumns: string[] = ['scooterModel', 'scooterSerialNumber', 'scooterQuantity', 'createdAt', 'pricePerModel', 'actions'];
+  // Updated displayedColumns to include availability
+  displayedColumns: string[] = ['scooterModel', 'scooterSerialNumber', 'scooterQuantity', 'pricePerModel', 'availability', 'createdAt', 'actions'];
   isLoading = false;
 
   // Updated form to match your HTML template
@@ -62,6 +66,7 @@ export class RegisterScooterComponentComponent implements OnInit {
       Validators.pattern('^[0-9]*$'),
       Validators.min(1)
     ]),
+    isScooterAvailable: new FormControl(true),
   });
 
   ngOnInit() {
@@ -72,7 +77,7 @@ export class RegisterScooterComponentComponent implements OnInit {
   loadScooters() {
     this.isLoading = true;
     const scootersCollection = collection(this.firestore, 'scooters');
-    
+
     collectionData(scootersCollection, { idField: 'id' }).subscribe({
       next: (data: any[]) => {
         this.scooters = data.map(scooter => ({
@@ -98,6 +103,7 @@ export class RegisterScooterComponentComponent implements OnInit {
       const docRef = await addDoc(scootersCollection, {
         ...formData,
         scooterQuantity: parseInt(formData.scooterQuantity),
+        isScooterAvailable: true, // Explicitly set to true
         createdAt: new Date(),
         updatedAt: new Date()
       });
@@ -151,5 +157,31 @@ export class RegisterScooterComponentComponent implements OnInit {
     if (charCode < 48 || charCode > 57) {
       event.preventDefault();
     }
+  }
+
+  // NEW METHODS for availability display
+
+  /**
+   * Get the color for availability chip
+   */
+  getAvailabilityColor(scooter: Scooter): 'primary' | 'warn' {
+    return scooter.isScooterAvailable !== false ? 'primary' : 'warn';
+  }
+
+  /**
+   * Get the text for availability status
+   */
+  getAvailabilityText(scooter: Scooter): string {
+    return scooter.isScooterAvailable !== false ? 'Available' : 'Unavailable';
+  }
+
+  /**
+   * Get CSS class for table row based on availability
+   */
+  getRowClass(scooter: Scooter): string {
+    if (scooter.isScooterAvailable === false) {
+      return 'unavailable-row';
+    }
+    return 'available-row';
   }
 }
