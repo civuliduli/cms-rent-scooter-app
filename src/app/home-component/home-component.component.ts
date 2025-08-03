@@ -604,62 +604,98 @@ private async executeSinglePrint(printContent: string, title: string): Promise<v
   }
 
   // Updated loadImageAsBase64 method
-  async loadImageAsBase64() {
-    try {
-      // Try multiple paths for Netlify compatibility
-      const possiblePaths = [
-        './assets/cms.png',
-        '/assets/cms.png',
-        'assets/cms.png',
-        './cms.png',
-        '/cms.png',
-        'cms.png'
-      ];
+// Updated loadImageAsBase64 method with better path resolution
+async loadImageAsBase64() {
+  try {
+    // Updated paths based on your file structure
+    const possiblePaths = [
+      // For production build (dist folder)
+      './assets/cms.png',
+      '/assets/cms.png',
+      'assets/cms.png',
+      
+      // For development
+      './src/assets/cms.png',
+      '/src/assets/cms.png',
+      
+      // Public folder paths
+      './public/cms.png',
+      '/public/cms.png',
+      'public/cms.png',
+      
+      // Direct filename
+      './cms.png',
+      '/cms.png',
+      'cms.png',
+      
+      // Fallback paths
+      '../assets/cms.png',
+      '../../assets/cms.png'
+    ];
 
-      let response: Response | null = null;
-      let successfulPath = '';
+    let response: Response | null = null;
+    let successfulPath = '';
 
-      for (const path of possiblePaths) {
-        try {
-          console.log(`Trying to load logo from: ${path}`);
-          response = await fetch(path);
-          if (response.ok) {
-            successfulPath = path;
-            console.log(`Successfully loaded logo from: ${path}`);
-            break;
-          }
-        } catch (error) {
-          console.log(`Failed to load from ${path}:`, error);
-          continue;
+    for (const path of possiblePaths) {
+      try {
+        console.log(`Trying to load logo from: ${path}`);
+        response = await fetch(path);
+        if (response.ok) {
+          successfulPath = path;
+          console.log(`Successfully loaded logo from: ${path}`);
+          break;
         }
+      } catch (error) {
+        console.log(`Failed to load from ${path}:`, error);
+        continue;
       }
+    }
 
-      if (!response || !response.ok) {
-        console.error('Could not load logo from any path');
-        this.logoBase64 = '';
-        return '';
+    if (!response || !response.ok) {
+      console.error('Could not load logo from any path');
+      console.error('Available paths tried:', possiblePaths);
+      
+      // Additional debugging - check what's actually available
+      try {
+        const testResponse = await fetch('/');
+        console.log('Base URL accessible:', testResponse.ok);
+      } catch (e) {
+        console.log('Base URL test failed:', e);
       }
-
-      const blob = await response.blob();
-      return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          this.logoBase64 = reader.result as string;
-          console.log('Logo loaded successfully from:', successfulPath);
-          resolve(this.logoBase64);
-        };
-        reader.onerror = (error) => {
-          console.error('FileReader error:', error);
-          reject(error);
-        };
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      console.error('Error loading image:', error);
+      
       this.logoBase64 = '';
       return '';
     }
+
+    const blob = await response.blob();
+    
+    // Validate that we got an image
+    if (!blob.type.startsWith('image/')) {
+      console.error('Retrieved file is not an image:', blob.type);
+      this.logoBase64 = '';
+      return '';
+    }
+
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.logoBase64 = reader.result as string;
+        console.log('Logo loaded successfully from:', successfulPath);
+        console.log('Logo base64 length:', this.logoBase64.length);
+        resolve(this.logoBase64);
+      };
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error);
+        reject(error);
+      };
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error loading image:', error);
+    this.logoBase64 = '';
+    return '';
   }
+}
 
   // Updated loadSignature method
   async loadSignature() {
