@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import {
   FormGroup,
   FormControl,
@@ -96,7 +96,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
 
   });
 
-  constructor() {
+  constructor(private cdr: ChangeDetectorRef) {
     // Remove async operations from constructor
   }
 
@@ -223,27 +223,28 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     }
   }
 
-  async loadRentals() {
-    try {
-      const rentalsSnapshot = await getDocs(collection(this.firestore, 'rentals'));
-      this.rentals = rentalsSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter((rental: any) => rental.isRentActive === true)
-        .map((rental: any) => {
-          const scooter = this.scooters.find(s => s.id === rental.scooterId);
-          return {
-            ...rental,
-            scooterName: rental.scooterName || (scooter ? (scooter.scooterModel || `Scooter ${scooter.id}`) : 'Unknown Scooter')
-          };
-        });
+async loadRentals() {
+  try {
+    const rentalsSnapshot = await getDocs(collection(this.firestore, 'rentals'));
+    this.rentals = rentalsSnapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter((rental: any) => rental.isRentActive === true) // Only show active rentals
+      .map((rental: any) => {
+        const scooter = this.scooters.find(s => s.id === rental.scooterId);
+        return {
+          ...rental,
+          scooterName: rental.scooterName || (scooter ? (scooter.scooterModel || `Scooter ${scooter.id}`) : 'Unknown Scooter')
+        };
+      });
 
-      this.dataSource = this.rentals;
-      console.log('Loaded rentals:', this.rentals);
-    } catch (error) {
-      console.error('Error loading rentals:', error);
-      throw error;
-    }
+    // Force update the dataSource with new array reference
+    this.dataSource = [...this.rentals];
+    console.log('Loaded rentals:', this.rentals);
+  } catch (error) {
+    console.error('Error loading rentals:', error);
+    throw error;
   }
+}
 
   async toggleActive(element: any) {
     if (this.isSubmitting) return; // Prevent multiple clicks
@@ -265,8 +266,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
   }
 
   async finishRental(element: any) {
-    if (this.isSubmitting) return;
-
     if (confirm(`Are you sure you want to finish the rental for ${element.name}?`)) {
       try {
         this.isSubmitting = true;
@@ -284,17 +283,304 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
         }
 
         console.log('Rental finished and scooter made available');
-        await this.loadScooters(); // Reload scooters to reflect availability change
+        
+        // Reload data
+        await this.loadScooters();
         await this.loadRentals();
+        
+        // Force change detection
+        this.cdr.detectChanges();
+
+        // Print completion document
+        await this.printCompletionDocument(element);
+
         alert(`Rental for ${element.name} has been finished successfully! Scooter is now available.`);
       } catch (error) {
         console.error('Error finishing rental:', error);
         alert('Error finishing rental. Please try again.');
-      } finally {
         this.isSubmitting = false;
       }
     }
   }
+
+  async printCompletionDocument(rental: any) {
+    try {
+      if (!this.logoBase64) {
+        await this.loadImageAsBase64();
+      }
+      if (!this.signatureBase64) {
+        await this.loadSignature();
+      }
+
+      const currentDate = new Date().toLocaleDateString();
+      const currentTime = new Date().toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const logoImage = this.logoBase64 || '';
+      const signatureImage = this.signatureBase64 || '';
+
+      const scooter = this.scooters.find(s => s.id === rental.scooterId);
+      const scooterModel = scooter
+        ? scooter.scooterModel || `Scooter ${scooter.id}`
+        : rental.scooterName || 'Unknown Scooter';
+
+      const completionContent = `
+        <div style="font-family: Arial, sans-serif; font-size: 13px; padding: 15px; max-width: 800px; margin: auto; line-height: 1.4;">
+          
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+            <div style="flex: 1;">
+              <p style="font-weight: bold; font-size: 13px; margin: 0 0 6px;">CMS-2013 DOOEL DEBAR</p>
+              <p style="margin: 2px 0; font-size: 12px;">Ul: "Bratstvo Edinstvo" Br.5 - Debar</p>
+              <p style="margin: 2px 0; font-size: 12px;">Email: <a href="mailto:nertil.osmani@gmail.com">nertil.osmani@gmail.com</a></p>
+              <p style="margin: 2px 0; font-size: 12px;">Mob: +38971211066</p>
+              <p style="margin: 2px 0; font-size: 12px;">Smetka Br: 200002635881387</p>
+              <p style="margin: 2px 0; font-size: 12px;">Deponent banka: "Stopanska Banka A.D - Skopje"</p>
+              <p style="margin: 2px 0; font-size: 12px;">Danocen Br: 4008013501985</p>
+            </div>
+            <div style="flex-shrink: 0; text-align: right;">
+              ${logoImage ? `<img src="${logoImage}" alt="Logo" style="height: 60px;" />` : ''}
+            </div>
+          </div>
+
+          <hr style="margin: 10px 0; border: none; border-top: 2px solid #333;" />
+
+          <h1 style="text-align: center; font-size: 20px; margin: 10px 0; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+            📋 PËRFUNDIMI I KONTRATËS
+          </h1>
+
+          <div style="font-size: 17px;">
+            <p style="margin: 6px 0; text-align: justify; text-indent: 20px;">
+              Pas kontrollit teknik dhe vizual nga qiradhënësi, konstatohet se trotineti elektrik është dorëzuar në gjendje të rregullt, pa dëmtime dhe me të gjithë aksesorët e marrë në momentin e marrjes me qira.
+            </p>
+
+            <p style="margin: 6px 0; text-align: justify; text-indent: 20px;">
+              Qiradhënësi pranon kthimin e pajisjes dhe konfirmon mbylljen e kësaj kontrate në përputhje me të gjitha kushtet e përcaktuara në marrëveshjen fillestare.
+            </p>
+
+            <p style="margin: 6px 0 10px 0; text-align: justify; text-indent: 20px;">
+              Qiramarrësit i kthehet garancia e paguar (nëse ka pasur), dhe palët deklarojnë se nuk kanë pretendime të tjera ndaj njëra-tjetrës lidhur me këtë marrëveshje dhe përdorimin e pajisjes.
+            </p>
+
+            <div style="margin: 10px 0; padding: 10px; border: 2px solid #333; background-color: #f5f5f5; font-size: 17px; border-radius: 6px;">
+              <h3 style="margin: 0 0 8px; text-align: center; font-size: 20px;">📱 DETAJET E TROTINETIT</h3>
+              <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <p style="margin: 4px 0; flex: 1 0 45%; font-weight: bold;">🛴 Modeli: ${scooterModel}</p>
+                <p style="margin: 4px 0; flex: 1 0 45%; font-weight: bold;">🔢 Serial: ${rental.scooterSerialNumber || 'N/A'}</p>
+                <p style="margin: 4px 0; flex: 1 0 45%; font-weight: bold;">👤 Qiramarrësi: ${rental.name}</p>
+                <p style="margin: 4px 0; flex: 1 0 45%; font-weight: bold;">💰 Garancia: ${rental.depositDamage || '0'} denarë</p>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin: 10px 0; font-size: 16px; background-color: #f9f9f9; padding: 8px; border-radius: 4px;">
+              <p style="margin: 0; font-weight: bold;">📅 Data e dorëzimit: ${currentDate}</p>
+              <p style="margin: 0; font-weight: bold;">🕒 Ora e dorëzimit: ${currentTime}</p>
+            </div>
+
+            <div style="margin: 10px 0; padding: 10px; background-color: #f0f8ff; border-left: 4px solid #333; font-size: 16px;">
+              <p style="margin: 0; font-style: italic; text-align: center;">
+                Ky dokument shërben si dëshmi për mbylljen e suksesshme të kontratës së qirasë dhe kthimin e pajisjes në gjendje të mirë.
+              </p>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; margin-top: 20px; gap: 20px;">
+            <div style="flex: 1; text-align: center;">
+              <h3 style="margin: 0 0 10px; font-size: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">QIRADHËNËSI</h3>
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Emri & Mbiemri:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin: 4px 0 10px; position: relative;">
+                <span style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #666;">Nertil Osmani</span>
+              </div>
+
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold; visibility: hidden;">Nr. ID / Pasaportë:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin: 4px 0 10px; position: relative; visibility: hidden;">
+              </div>
+
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Nënshkrimi:</p>
+              ${signatureImage ? `
+                <div style="border: 1px solid #333; height: 60px; margin: 4px 0; display: flex; align-items: center; justify-content: center; background-color: #fafafa; border-radius: 4px;">
+                  <img src="${signatureImage}" alt="Signature" style="height: 40px; max-width: 150px;" />
+                </div>` :
+                `<div style="border: 1px solid #333; height: 60px; margin: 4px 0; background-color: #fafafa;"></div>`}
+            </div>
+
+            <div style="flex: 1; text-align: center;">
+              <h3 style="margin: 0 0 10px; font-size: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">QIRAMARRËSI</h3>
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Emri & Mbiemri:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin: 4px 0 10px; position: relative;">
+                <span style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #666;">${rental.name}</span>
+              </div>
+
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Nr. ID / Pasaportë:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin: 4px 0 10px; position: relative;">
+                <span style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #666;">${rental.embg}</span>
+              </div>
+
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Nënshkrimi:</p>
+              <div style="border: 1px solid #333; height: 60px; margin: 4px 0; background-color: #fafafa;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      await this.executeSinglePrint(completionContent, `Completion - ${rental.name}`);
+    } catch (error) {
+      console.error('Error printing completion document:', error);
+      alert('Error creating completion document. Please try again.');
+    }
+  }
+
+private async executeSinglePrint(printContent: string, title: string): Promise<void> {
+  return new Promise((resolve) => {
+    // Store original page content
+    const originalContent = document.body.innerHTML;
+    const originalTitle = document.title;
+
+    // Create print styles
+    const printStyles = `
+    <style id="print-styles-single">
+      @page {
+        margin: 0.5in;
+        size: A4;
+        @top-left { content: ""; }
+        @top-center { content: ""; }
+        @top-right { content: ""; }
+        @bottom-left { content: ""; }
+        @bottom-center { content: ""; }
+        @bottom-right { content: ""; }
+        @top-left-corner { content: ""; }
+        @top-right-corner { content: ""; }
+        @bottom-left-corner { content: ""; }
+        @bottom-right-corner { content: ""; }
+      }
+      
+      @media print {
+        body {
+          margin: 0;
+          font-size: 14px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        
+        header, footer, .no-print, .print-header, .print-footer {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        
+        @page :first {
+          margin-top: 0.5in;
+        }
+        
+        img {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          max-width: 100% !important;
+          height: auto !important;
+          display: block !important;
+        }
+        
+        img[alt="Logo"] {
+          height: 60px !important;
+          width: auto !important;
+        }
+        
+        img[alt="Signature"] {
+          height: 60px !important;
+          max-width: 150px !important;
+          width: auto !important;
+        }
+      }
+      
+      body { 
+        font-family: Arial, sans-serif; 
+        font-size: 14px; 
+        margin: 0;
+        padding: 20px;
+      }
+      
+      ::-webkit-scrollbar {
+        display: none;
+      }
+    </style>
+  `;
+
+    // Create content for ONLY ONE PAGE (for completion documents)
+    const singleContent = `
+    ${printStyles}
+    <div class="print-container">
+      ${printContent}
+    </div>
+  `;
+
+    document.title = title;
+    document.body.innerHTML = singleContent;
+
+    const waitForImages = () => {
+      return new Promise<void>((imageResolve) => {
+        const images = document.querySelectorAll('img');
+        if (images.length === 0) {
+          imageResolve();
+          return;
+        }
+
+        let loadedCount = 0;
+        const totalImages = images.length;
+
+        const checkAllLoaded = () => {
+          loadedCount++;
+          if (loadedCount >= totalImages) {
+            imageResolve();
+          }
+        };
+
+        images.forEach((img) => {
+          if (img.complete && img.naturalHeight !== 0) {
+            checkAllLoaded();
+          } else {
+            img.onload = checkAllLoaded;
+            img.onerror = checkAllLoaded;
+          }
+        });
+
+        setTimeout(() => imageResolve(), 500);
+      });
+    };
+
+    // Function to restore content and resolve promise
+    const restoreContentAndResolve = () => {
+      document.body.innerHTML = originalContent;
+      document.title = originalTitle;
+      const printStyleElement = document.getElementById('print-styles-single');
+      if (printStyleElement) {
+        printStyleElement.remove();
+      }
+      // ALWAYS reset the submitting flag and resolve
+      this.isSubmitting = false;
+      resolve();
+    };
+
+    waitForImages().then(() => {
+      setTimeout(() => {
+        window.print();
+      }, 100);
+
+      const handleAfterPrint = () => {
+        window.removeEventListener('afterprint', handleAfterPrint);
+        restoreContentAndResolve();
+      };
+
+      window.addEventListener('afterprint', handleAfterPrint);
+      setTimeout(() => {
+        window.removeEventListener('afterprint', handleAfterPrint);
+        restoreContentAndResolve();
+      }, 5000); // Reduced timeout for faster recovery
+    });
+  });
+}
 
   minSelectedCheckboxes(min = 1): ValidatorFn {
     return (formArray: AbstractControl) => {
@@ -317,14 +603,41 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     accessoriesArray.updateValueAndValidity();
   }
 
+  // Updated loadImageAsBase64 method
   async loadImageAsBase64() {
     try {
-      let response = await fetch('assets/cms.png');
-      if (!response.ok) {
-        response = await fetch('/cms.png');
+      // Try multiple paths for Netlify compatibility
+      const possiblePaths = [
+        './assets/cms.png',
+        '/assets/cms.png',
+        'assets/cms.png',
+        './cms.png',
+        '/cms.png',
+        'cms.png'
+      ];
+
+      let response: Response | null = null;
+      let successfulPath = '';
+
+      for (const path of possiblePaths) {
+        try {
+          console.log(`Trying to load logo from: ${path}`);
+          response = await fetch(path);
+          if (response.ok) {
+            successfulPath = path;
+            console.log(`Successfully loaded logo from: ${path}`);
+            break;
+          }
+        } catch (error) {
+          console.log(`Failed to load from ${path}:`, error);
+          continue;
+        }
       }
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+
+      if (!response || !response.ok) {
+        console.error('Could not load logo from any path');
+        this.logoBase64 = '';
+        return '';
       }
 
       const blob = await response.blob();
@@ -332,7 +645,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
         const reader = new FileReader();
         reader.onload = () => {
           this.logoBase64 = reader.result as string;
-          console.log('Logo loaded successfully');
+          console.log('Logo loaded successfully from:', successfulPath);
           resolve(this.logoBase64);
         };
         reader.onerror = (error) => {
@@ -348,16 +661,41 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Load signature from assets
+  // Updated loadSignature method
   async loadSignature() {
     try {
-      let response = await fetch('assets/signature.png');
-      if (!response.ok) {
-        response = await fetch('/signature.png');
+      // Try multiple paths for Netlify compatibility
+      const possiblePaths = [
+        './assets/signature.png',
+        '/assets/signature.png',
+        'assets/signature.png',
+        './signature.png',
+        '/signature.png',
+        'signature.png'
+      ];
+
+      let response: Response | null = null;
+      let successfulPath = '';
+
+      for (const path of possiblePaths) {
+        try {
+          console.log(`Trying to load signature from: ${path}`);
+          response = await fetch(path);
+          if (response.ok) {
+            successfulPath = path;
+            console.log(`Successfully loaded signature from: ${path}`);
+            break;
+          }
+        } catch (error) {
+          console.log(`Failed to load from ${path}:`, error);
+          continue;
+        }
       }
-      if (!response.ok) {
+
+      if (!response || !response.ok) {
         console.log('No signature found - will use default line');
-        return;
+        this.signatureBase64 = '';
+        return '';
       }
 
       const blob = await response.blob();
@@ -365,7 +703,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
         const reader = new FileReader();
         reader.onload = () => {
           this.signatureBase64 = reader.result as string;
-          console.log('Signature loaded successfully');
+          console.log('Signature loaded successfully from:', successfulPath);
           resolve(this.signatureBase64);
         };
         reader.onerror = (error) => {
@@ -488,186 +826,186 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Replace both onPrint() and printExistingRental() methods with this single method
+  // FIXED PRINT CONTRACT METHOD
+async printContract(rental?: any) {
+  // Remove the isSubmitting check at the beginning
+  
+  // If no rental is provided, use form data (new rental)
+  const isNewRental = !rental;
 
-  async printContract(rental?: any) {
-    if (this.isSubmitting) return;
-
-    // If no rental is provided, use form data (new rental)
-    const isNewRental = !rental;
-
-    // Validate form for new rentals
-    if (isNewRental && !this.form.valid) {
-      this.form.markAllAsTouched();
-      alert('Please fill in all required fields correctly before printing.');
-      return;
-    }
-
-    this.isSubmitting = true;
-
-    try {
-      let rentalData: any;
-
-      if (isNewRental) {
-        // Create new rental from form
-        this.form.get('isRentActive')?.patchValue(true, { emitEvent: false });
-        const formData = this.form.value;
-        const selectedScooter = this.scooters.find(s => s.id === formData.scooterId);
-
-        rentalData = {
-          ...formData,
-          scooterName: selectedScooter ? (selectedScooter.scooterModel || `Scooter ${selectedScooter.id}`) : 'Unknown Scooter',
-          createdAt: new Date()
-        };
-
-        // Save the rental first
-        await this.saveFormData(rentalData);
-
-        // Update scooter availability
-        if (formData.scooterId) {
-          await this.updateScooterAvailability(formData.scooterId, false);
-        }
-
-        // Reset form and reload data immediately
-        this.resetForm();
-        await this.loadScooters();
-        await this.loadRentals();
-      } else {
-        // Use existing rental data
-        rentalData = rental;
-      }
-
-      // Ensure images are loaded
-      if (!this.logoBase64) {
-        await this.loadImageAsBase64();
-      }
-      if (!this.signatureBase64) {
-        await this.loadSignature();
-      }
-
-      // Format the meeting date
-      const meetingDateStr = rentalData.meetingDate
-        ? (rentalData.meetingDate.toDate
-          ? rentalData.meetingDate.toDate().toLocaleDateString()
-          : new Date(rentalData.meetingDate).toLocaleDateString())
-        : '______________';
-
-      // Format accessories - handle both array and string formats
-      let accessoriesStr = 'Asnjë';
-      if (rentalData.accessories) {
-        if (Array.isArray(rentalData.accessories) && rentalData.accessories.length) {
-          accessoriesStr = rentalData.accessories.join(', ');
-        } else if (typeof rentalData.accessories === 'string' && rentalData.accessories.trim()) {
-          accessoriesStr = rentalData.accessories;
-        }
-      }
-
-      const currentDate = new Date().toLocaleDateString();
-      const logoImage = this.logoBase64 || '';
-      const signatureImage = this.signatureBase64 || '';
-
-      const printContent = `
-      <div style="font-family: Arial, sans-serif; font-size: 15px; padding: 5px; max-width: 800px; margin: auto; line-height: 1.1;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px;">
-            <div style="flex: 1;">
-                <p style="font-weight: bold; font-size: 9px; margin: 0; padding: 0;">CMS-2013 DOOEL DEBAR</p>
-                <p style="margin: 0; padding: 0;">Ul: "Bratstvo Edinstvo" Br.5 - Debar</p>
-                <p style="margin: 0; padding: 0;">Email: <a href="mailto:nertil.osmani@gmail.com">nertil.osmani@gmail.com</a></p>
-                <p style="margin: 0; padding: 0;">Mob: +38971211066</p>
-                <p style="margin: 0; padding: 0;">Smetka Br: 200002635881387</p>
-                <p style="margin: 0; padding: 0;">Deponent banka: "Stopanska Banka A.D - Skopje"</p>
-                <p style="margin: 0; padding: 0;">Danocen Br: 4008013501985</p>
-            </div>
-            <div style="flex-shrink: 0; text-align: right;">
-                ${logoImage ? `<img src="${logoImage}" alt="Logo" style="height: 50px;" />` : ''}
-            </div>
-        </div>
-
-        <hr style="margin: 10px 0; border: none; border-top: 1px solid #ccc;" />
-
-        <h3 style="text-align:center; font-size: 17px; margin: 15px 0 10px;">📄 KONTRATË PËR DHËNIEN ME QIRA TË TROTINETIT ELEKTRIK</h3>
-
-        <p style="margin-top: 20px;"><strong>Qiradhënësi:</strong><br>
-        Emri: CMS-2013 DOOEL DEBAR<br>
-        Adresa: "Bratstvo Edinstvo" Br.5 - Debar<br>
-        Nr. personal (EMBG): 4008013501985<br>
-        Telefon: +38971211066</p>
-
-        <p style="margin: 3px 0;"><strong>Qiramarrësi:</strong><br>
-        Emri: ${rentalData.name}<br>
-        Nr. Letërnjoftimi / Pasaportës: ${rentalData.embg}<br>
-        Adresa: ${rentalData.address}<br>
-        Telefon: ${rentalData.phone}</p>
-
-        <hr style="margin: 3px 0; border: none; border-top: 1px solid #ccc;" />
-
-        <p style="margin: 3px 0;"><strong>Neni 1 – Objekti i Kontratës</strong><br>
-        Qiradhënësi i jep me qira qiramarrësit një trotinet elektrik, për përdorim të përkohshëm, sipas kushteve të kësaj kontrate.</p>
-
-        <p style="margin: 3px 0;"><strong>Neni 2 – Periudha e Marrjes me Qira</strong><br>
-        Data dhe ora e marrjes: ${meetingDateStr}<br>
-        Koha totale: ${rentalData.nrOfDays || 'N/A'} ditë</p>
-
-        <p style="margin: 3px 0;"><strong>Neni 3 – Çmimi dhe Pagesa</strong><br>
-        Pagesa: para dorëzimit<br>
-        Totali: ${rentalData.amount} denarë</p>
-
-        <p style="margin: 3px 0;"><strong>Neni 4 – Depoziti</strong><br>
-        Depoziti: ${rentalData.depositDamage || '0'} denarë</p>
-
-        <p style="margin: 3px 0;"><strong>Neni 5 – Detyrimet e Qiramarrësit</strong><br>
-        1. ⁠E përdor trotinetin me kujdes dhe në përputhje me rregullat e trafikut.<br>
-        2. ⁠Është përgjegjës për çdo dëmtim, humbje ose vjedhje të trotinetit gjatë periudhës së përdorimit.<br>
-        3. ⁠Në rast aksidenti ose problemi, e njofton menjëherë qiradhënësin.<br>
-        4. Nuk e jep trotinetin palës së tretë pa leje me shkrim.</p>
-
-        <p style="margin: 3px 0;"><strong>Neni 6 – Dorëzimi dhe Kontrolli</strong><br>
-        Aksesorë: ${accessoriesStr}</p>
-
-        <p style="margin: 3px 0;"><strong>Neni 7 – Zgjidhja e Mosmarrëveshjeve</strong><br>
-        Mosmarrëveshjet zgjidhen në Gjykatën Themelore në Dibër.</p>
-
-        <p style="margin: 3px 0;"><strong>Neni 8 – Dispozita përfundimtare</strong><br>
-        Kontrata në 2 kopje. Nënshkrimi nënkupton pranimin e kushteve.</p>
-
-        <hr style="margin: 3px 0; border: none; border-top: 1px solid #ccc;" />
-
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 5px;">
-            <div style="text-align: center; flex: 1;">
-                <p style="margin: 5px 0;">Qiradhënësi</p>
-                ${signatureImage ? `<img src="${signatureImage}" alt="Signature" style="height: 120px; max-width: 300px; margin: 5px 0;" />` : '<p style="margin-top: 20px;">____________________</p>'}
-            </div>
-            <div style="text-align: center; flex: 1;">
-                <p style="margin: 5px 0;">Qiramarrësi</p>
-                <p style="margin-top: 25px;">____________________</p>
-            </div>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
-            <p style="margin: 0;">📌 Nr. i trotinetit: ${rentalData.scooterSerialNumber || 'N/A'}</p>
-            <p style="margin: 0;">Data: ${currentDate}</p>
-        </div>
-      </div>
-    `;
-
-      // Execute the print operation
-      await this.executePrint(printContent, isNewRental ? 'Contract' : `Contract - ${rentalData.name}`);
-
-      // Show success message for new rentals
-      if (isNewRental) {
-        alert('Form saved successfully! Scooter is now marked as unavailable.');
-      }
-
-    } catch (error) {
-      console.error('Error printing:', error);
-      alert('Error creating print document. Please try again.');
-    } finally {
-      this.isSubmitting = false;
-    }
+  // Validate form for new rentals
+  if (isNewRental && !this.form.valid) {
+    this.form.markAllAsTouched();
+    alert('Please fill in all required fields correctly before printing.');
+    return;
   }
 
-  // Helper method to handle the actual print execution
-  private async executePrint(printContent: string, title: string) {
+  this.isSubmitting = true;
+
+  try {
+    let rentalData: any;
+
+    if (isNewRental) {
+      // Create new rental from form
+      this.form.get('isRentActive')?.patchValue(true, { emitEvent: false });
+      const formData = this.form.value;
+      const selectedScooter = this.scooters.find(s => s.id === formData.scooterId);
+
+      rentalData = {
+        ...formData,
+        scooterName: selectedScooter ? (selectedScooter.scooterModel || `Scooter ${selectedScooter.id}`) : 'Unknown Scooter',
+        createdAt: new Date()
+      };
+
+      // Save the rental first
+      await this.saveFormData(rentalData);
+
+      // Update scooter availability
+      if (formData.scooterId) {
+        await this.updateScooterAvailability(formData.scooterId, false);
+      }
+
+      // Reset form and reload data immediately
+      this.resetForm();
+      await this.loadScooters();
+      await this.loadRentals();
+    } else {
+      // Use existing rental data
+      rentalData = rental;
+    }
+
+    // Ensure images are loaded
+    if (!this.logoBase64) {
+      await this.loadImageAsBase64();
+    }
+    if (!this.signatureBase64) {
+      await this.loadSignature();
+    }
+
+    // Format the meeting date
+    const meetingDateStr = rentalData.meetingDate
+      ? (rentalData.meetingDate.toDate
+        ? rentalData.meetingDate.toDate().toLocaleDateString()
+        : new Date(rentalData.meetingDate).toLocaleDateString())
+      : '______________';
+
+    // Format accessories - handle both array and string formats
+    let accessoriesStr = 'Asnjë';
+    if (rentalData.accessories) {
+      if (Array.isArray(rentalData.accessories) && rentalData.accessories.length) {
+        accessoriesStr = rentalData.accessories.join(', ');
+      } else if (typeof rentalData.accessories === 'string' && rentalData.accessories.trim()) {
+        accessoriesStr = rentalData.accessories;
+      }
+    }
+
+    const currentDate = new Date().toLocaleDateString();
+    const logoImage = this.logoBase64 || '';
+    const signatureImage = this.signatureBase64 || '';
+
+    const printContent = `
+    <div style="font-family: Arial, sans-serif; font-size: 15px; padding: 5px; max-width: 800px; margin: auto; line-height: 1.1;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px;">
+          <div style="flex: 1;">
+              <p style="font-weight: bold; font-size: 9px; margin: 0; padding: 0;">CMS-2013 DOOEL DEBAR</p>
+              <p style="margin: 0; padding: 0;">Ul: "Bratstvo Edinstvo" Br.5 - Debar</p>
+              <p style="margin: 0; padding: 0;">Email: <a href="mailto:nertil.osmani@gmail.com">nertil.osmani@gmail.com</a></p>
+              <p style="margin: 0; padding: 0;">Mob: +38971211066</p>
+              <p style="margin: 0; padding: 0;">Smetka Br: 200002635881387</p>
+              <p style="margin: 0; padding: 0;">Deponent banka: "Stopanska Banka A.D - Skopje"</p>
+              <p style="margin: 0; padding: 0;">Danocen Br: 4008013501985</p>
+          </div>
+          <div style="flex-shrink: 0; text-align: right;">
+              ${logoImage ? `<img src="${logoImage}" alt="Logo" style="height: 50px;" />` : ''}
+          </div>
+      </div>
+
+      <hr style="margin: 10px 0; border: none; border-top: 1px solid #ccc;" />
+
+      <h3 style="text-align:center; font-size: 17px; margin: 15px 0 10px;">📄 KONTRATË PËR DHËNIEN ME QIRA TË TROTINETIT ELEKTRIK</h3>
+
+      <p style="margin-top: 20px;"><strong>Qiradhënësi:</strong><br>
+      Emri: CMS-2013 DOOEL DEBAR<br>
+      Adresa: "Bratstvo Edinstvo" Br.5 - Debar<br>
+      Nr. personal (EMBG): 4008013501985<br>
+      Telefon: +38971211066</p>
+
+      <p style="margin: 3px 0;"><strong>Qiramarrësi:</strong><br>
+      Emri: ${rentalData.name}<br>
+      Nr. Letërnjoftimi / Pasaportës: ${rentalData.embg}<br>
+      Adresa: ${rentalData.address}<br>
+      Telefon: ${rentalData.phone}</p>
+
+      <hr style="margin: 3px 0; border: none; border-top: 1px solid #ccc;" />
+
+      <p style="margin: 3px 0;"><strong>Neni 1 – Objekti i Kontratës</strong><br>
+      Qiradhënësi i jep me qira qiramarrësit një trotinet elektrik, për përdorim të përkohshëm, sipas kushteve të kësaj kontrate.</p>
+
+      <p style="margin: 3px 0;"><strong>Neni 2 – Periudha e Marrjes me Qira</strong><br>
+      Data dhe ora e marrjes: ${meetingDateStr}<br>
+      Koha totale: ${rentalData.nrOfDays || 'N/A'} ditë</p>
+
+      <p style="margin: 3px 0;"><strong>Neni 3 – Çmimi dhe Pagesa</strong><br>
+      Pagesa: para dorëzimit<br>
+      Totali: ${rentalData.amount} denarë</p>
+
+      <p style="margin: 3px 0;"><strong>Neni 4 – Depoziti</strong><br>
+      Depoziti: ${rentalData.depositDamage || '0'} denarë</p>
+
+      <p style="margin: 3px 0;"><strong>Neni 5 – Detyrimet e Qiramarrësit</strong><br>
+      1. ⁠E përdor trotinetin me kujdes dhe në përputhje me rregullat e trafikut.<br>
+      2. ⁠Është përgjegjës për çdo dëmtim, humbje ose vjedhje të trotinetit gjatë periudhës së përdorimit.<br>
+      3. ⁠Në rast aksidenti ose problemi, e njofton menjëherë qiradhënësin.<br>
+      4. Nuk e jep trotinetin palës së tretë pa leje me shkrim.</p>
+
+      <p style="margin: 3px 0;"><strong>Neni 6 – Dorëzimi dhe Kontrolli</strong><br>
+      Aksesorë: ${accessoriesStr}</p>
+
+      <p style="margin: 3px 0;"><strong>Neni 7 – Zgjidhja e Mosmarrëveshjeve</strong><br>
+      Mosmarrëveshjet zgjidhen në Gjykatën Themelore në Dibër.</p>
+
+      <p style="margin: 3px 0;"><strong>Neni 8 – Dispozita përfundimtare</strong><br>
+      Kontrata në 2 kopje. Nënshkrimi nënkupton pranimin e kushteve.</p>
+
+      <hr style="margin: 3px 0; border: none; border-top: 1px solid #ccc;" />
+
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 5px;">
+          <div style="text-align: center; flex: 1;">
+              <p style="margin: 5px 0;">Qiradhënësi</p>
+              ${signatureImage ? `<img src="${signatureImage}" alt="Signature" style="height: 120px; max-width: 300px; margin: 5px 0;" />` : '<p style="margin-top: 20px;">____________________</p>'}
+          </div>
+          <div style="text-align: center; flex: 1;">
+              <p style="margin: 5px 0;">Qiramarrësi</p>
+              <p style="margin-top: 25px;">____________________</p>
+          </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+          <p style="margin: 0;">📌 Nr. i trotinetit: ${rentalData.scooterSerialNumber || 'N/A'}</p>
+          <p style="margin: 0;">Data: ${currentDate}</p>
+      </div>
+    </div>
+  `;
+
+    // Execute the print operation with proper callback handling
+    await this.executePrint(printContent, isNewRental ? 'Contract' : `Contract - ${rentalData.name}`);
+
+    // Show success message for new rentals
+    if (isNewRental) {
+      alert('Form saved successfully! Scooter is now marked as unavailable.');
+    }
+
+  } catch (error) {
+    console.error('Error printing:', error);
+    alert('Error creating print document. Please try again.');
+    this.isSubmitting = false; // Reset flag on error
+  }
+  // The executePrint method will handle resetting isSubmitting
+}
+
+  // FIXED EXECUTE PRINT METHOD
+private async executePrint(printContent: string, title: string): Promise<void> {
+  return new Promise((resolve) => {
     // Store original page content
     const originalContent = document.body.innerHTML;
     const originalTitle = document.title;
@@ -678,7 +1016,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
       @page {
         margin: 0.5in;
         size: A4;
-        /* Completely hide headers and footers */
         @top-left { content: ""; }
         @top-center { content: ""; }
         @top-right { content: ""; }
@@ -699,7 +1036,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
           print-color-adjust: exact;
         }
         
-        /* Hide any potential header/footer elements and URL information */
         header, footer, .no-print, .print-header, .print-footer {
           display: none !important;
           visibility: hidden !important;
@@ -708,7 +1044,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
           padding: 0 !important;
         }
         
-        /* Remove any default browser print styles */
         @page :first {
           margin-top: 0.5in;
         }
@@ -721,7 +1056,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
           margin-right: 0.5in;
         }
         
-        /* Ensure images print correctly */
         img {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
@@ -730,7 +1064,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
           display: block !important;
         }
         
-        /* Specific styling for logo and signature */
         img[alt="Logo"] {
           height: 50px !important;
           width: auto !important;
@@ -742,12 +1075,10 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
           width: auto !important;
         }
         
-        /* Hide URL and page info that might appear */
         .url-info, .page-info, .print-url {
           display: none !important;
         }
         
-        /* Force page breaks for 2 pages */
         .page-break {
           page-break-before: always;
         }
@@ -760,12 +1091,10 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
         padding: 10px;
       }
       
-      /* Hide scrollbars */
       ::-webkit-scrollbar {
         display: none;
       }
       
-      /* Additional hiding for any URL/IP address elements */
       .no-print, [class*="url"], [class*="address"], [id*="url"], [id*="address"] {
         display: none !important;
       }
@@ -789,10 +1118,10 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
 
     // Wait for images to load
     const waitForImages = () => {
-      return new Promise((resolve) => {
+      return new Promise<void>((imageResolve) => {
         const images = document.querySelectorAll('img');
         if (images.length === 0) {
-          resolve(true);
+          imageResolve();
           return;
         }
 
@@ -802,7 +1131,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
         const checkAllLoaded = () => {
           loadedCount++;
           if (loadedCount >= totalImages) {
-            resolve(true);
+            imageResolve();
           }
         };
 
@@ -815,42 +1144,51 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
           }
         });
 
-        // Timeout for faster printing
-        setTimeout(() => resolve(true), 500);
+        setTimeout(() => imageResolve(), 500);
       });
     };
 
-    // Wait for images with reduced delay
-    await waitForImages();
-
-    // Small delay for faster printing
-    setTimeout(() => {
-      window.print();
-    }, 100);
-
-    // Listen for print events to restore content
-    const handleAfterPrint = () => {
+    // Function to restore content and resolve promise
+    const restoreContentAndResolve = () => {
       document.body.innerHTML = originalContent;
       document.title = originalTitle;
-      // Remove print styles if they still exist
       const printStyleElement = document.getElementById('print-styles');
       if (printStyleElement) {
         printStyleElement.remove();
       }
-      window.removeEventListener('afterprint', handleAfterPrint);
+      
+      // ALWAYS reset the submitting flag and resolve
+      this.isSubmitting = false;
+      resolve();
     };
 
-    // Restore content after printing or after timeout
-    window.addEventListener('afterprint', handleAfterPrint);
+    // Wait for images and then execute print
+    waitForImages().then(() => {
+      setTimeout(() => {
+        window.print();
+      }, 100);
 
-    // Fallback timeout in case afterprint doesn't fire
-    setTimeout(handleAfterPrint, 10000);
-  }
+      // Handle after print events
+      const handleAfterPrint = () => {
+        window.removeEventListener('afterprint', handleAfterPrint);
+        restoreContentAndResolve();
+      };
+
+      // Listen for print completion
+      window.addEventListener('afterprint', handleAfterPrint);
+
+      // Fallback timeout - ALWAYS restore after 5 seconds
+      setTimeout(() => {
+        window.removeEventListener('afterprint', handleAfterPrint);
+        restoreContentAndResolve();
+      }, 5000); // Reduced from 10000 to 5000 for faster recovery
+    });
+  });
+}
 
   getAvailableScootersCount(): number {
     return this.scooters.filter(scooter => scooter.isScooterAvailable !== false).length;
   }
-
 
   async updateScooterAvailability(scooterId: string, isAvailable: boolean) {
     try {

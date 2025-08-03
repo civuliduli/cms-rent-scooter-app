@@ -268,11 +268,11 @@
             <th mat-header-cell *matHeaderCellDef> Actions </th>
             <td mat-cell *matCellDef="let element">
               <div class="flex space-x-2">
-                <button mat-button color="accent" (click)="finishRental(element)" [disabled]="!element.isRentActive"
+                <button mat-button color="accent" (click)="finishRental(element)"
                   class="text-sm">
                   Finish Rental
                 </button>
-                <button mat-button color="primary" (click)="printContract(element)" [disabled]="isSubmitting"
+                <button mat-button color="primary" (click)="printContract(element)"
                   class="text-sm">
                   Print
                 </button>
@@ -346,16 +346,13 @@
               <span class="text-gray-800 font-semibold">{{rental.amount}} den.</span>
             </div>
 
-            <div class="flex justify-center pt-3 space-x-2">
-              <button mat-button color="accent" (click)="finishRental(rental)" [disabled]="!rental.isRentActive"
-                class="text-sm">
-                Finish Rental
-              </button>
-              <button mat-button color="primary" (click)="printContract(rental)" [disabled]="isSubmitting"
-                class="text-sm">
-                Print
-              </button>
-            </div>
+            <button mat-button color="accent" (click)="finishRental(rental)" [disabled]="!rental.isRentActive"
+              class="text-sm">
+              Finish Rental
+            </button>
+            <button mat-button color="primary" (click)="printContract(rental)" class="text-sm">
+              Print
+            </button>
           </div>
         </mat-card-content>
       </mat-card>
