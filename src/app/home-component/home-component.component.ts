@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import {
   FormGroup,
   FormControl,
@@ -48,7 +48,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   logoBase64 = '';
-  signatureBase64 = ''; // Added signature storage
+  signatureBase64 = '';
   accessoriess = ['Helmet', 'Charger'];
   rentals: any[] = [];
   displayedColumns: string[] = ['name', 'phone', 'embg', 'meetingDate', 'address', 'amount', 'scooter', 'scooterSerialNr', 'priceOfScooter', 'actions'];
@@ -96,7 +96,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
 
   });
 
-  constructor() {
+  constructor(private cdr: ChangeDetectorRef) {
     // Remove async operations from constructor
   }
 
@@ -104,13 +104,12 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     try {
       this.isLoading = true;
 
-      // Load data first
-      await this.loadImageAsBase64();
-      await this.loadSignature(); // Load signature
+      // Pre-load assets with retry mechanism
+      await this.preloadAssetsWithRetry();
+      
       await this.loadScooters();
       await this.loadRentals();
 
-      // Setup subscriptions only after data is loaded
       this.setupFormSubscriptions();
       this.isInitialized = true;
 
@@ -126,10 +125,56 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // Replace your existing setupFormSubscriptions() method with this updated version:
+  // NEW: Pre-load assets with retry mechanism
+  async preloadAssetsWithRetry(maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Asset loading attempt ${attempt}/${maxRetries}`);
+        
+        // Load both assets concurrently
+        const [logoResult, signatureResult] = await Promise.allSettled([
+          this.loadImageAsBase64(),
+          this.loadSignature()
+        ]);
+
+        // Check if logo loaded successfully
+        if (logoResult.status === 'fulfilled' && this.logoBase64) {
+          console.log('✅ Logo loaded successfully');
+        } else {
+          console.log(`❌ Logo failed on attempt ${attempt}`);
+          if (attempt < maxRetries) {
+            await this.delay(1000 * attempt); // Progressive delay
+            continue;
+          }
+        }
+
+        // Check if signature loaded successfully
+        if (signatureResult.status === 'fulfilled') {
+          console.log('✅ Signature loaded successfully');
+        } else {
+          console.log(`❌ Signature failed on attempt ${attempt}`);
+        }
+
+        // If we got the logo (signature is optional), we're good
+        if (this.logoBase64) {
+          break;
+        }
+
+      } catch (error) {
+        console.error(`Asset loading attempt ${attempt} failed:`, error);
+        if (attempt < maxRetries) {
+          await this.delay(1000 * attempt);
+        }
+      }
+    }
+  }
+
+  // NEW: Delay utility
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
   private setupFormSubscriptions() {
-    // Use takeUntil to prevent memory leaks and ensure subscriptions are cleaned up
     this.form.get('scooterId')?.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(selectedId => {
@@ -143,7 +188,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
               priceOfScooter: selectedScooter.pricePerModel || ''
             }, { emitEvent: false });
 
-            // Calculate amount based on scooter price and number of days
             this.calculateAmount();
           } else {
             this.form.patchValue({
@@ -154,7 +198,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
         }
       });
 
-    // Fix the date calculation to prevent infinite loops
     this.form.get('meetingDate')?.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(selectedDate => {
@@ -165,15 +208,11 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
           selected.setHours(0, 0, 0, 0);
           const dayDiff = Math.ceil((selected.getTime() - today.getTime()) / (1000 * 3600 * 24));
 
-          // Use patchValue with emitEvent: false to prevent recursive calls
           this.form.get('nrOfDays')?.patchValue((dayDiff >= 0 ? dayDiff : 0).toString(), { emitEvent: false });
-
-          // Recalculate amount when days change
           this.calculateAmount();
         }
       });
 
-    // Add subscription for manual changes to nrOfDays
     this.form.get('nrOfDays')?.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
@@ -182,7 +221,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
         }
       });
 
-    // Add subscription for manual changes to priceOfScooter
     this.form.get('priceOfScooter')?.valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
@@ -192,7 +230,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
       });
   }
 
-  // Add this new method to handle amount calculation
   private calculateAmount() {
     const nrOfDays = parseInt(this.form.get('nrOfDays')?.value || '0');
     const priceOfScooter = parseInt(this.form.get('priceOfScooter')?.value || '0');
@@ -237,7 +274,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
           };
         });
 
-      this.dataSource = this.rentals;
+      this.dataSource = [...this.rentals];
       console.log('Loaded rentals:', this.rentals);
     } catch (error) {
       console.error('Error loading rentals:', error);
@@ -246,7 +283,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
   }
 
   async toggleActive(element: any) {
-    if (this.isSubmitting) return; // Prevent multiple clicks
+    if (this.isSubmitting) return;
 
     try {
       this.isSubmitting = true;
@@ -265,35 +302,310 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
   }
 
   async finishRental(element: any) {
-    if (this.isSubmitting) return;
-
     if (confirm(`Are you sure you want to finish the rental for ${element.name}?`)) {
       try {
         this.isSubmitting = true;
 
-        // Update rental status
         const rentalDoc = doc(this.firestore, `rentals/${element.id}`);
         await updateDoc(rentalDoc, {
           isRentActive: false,
           finishedDate: new Date()
         });
 
-        // Make scooter available again
         if (element.scooterId) {
           await this.updateScooterAvailability(element.scooterId, true);
         }
 
         console.log('Rental finished and scooter made available');
-        await this.loadScooters(); // Reload scooters to reflect availability change
+        
+        await this.loadScooters();
         await this.loadRentals();
+        
+        this.cdr.detectChanges();
+
+        await this.printCompletionDocument(element);
+
         alert(`Rental for ${element.name} has been finished successfully! Scooter is now available.`);
       } catch (error) {
         console.error('Error finishing rental:', error);
         alert('Error finishing rental. Please try again.');
-      } finally {
         this.isSubmitting = false;
       }
     }
+  }
+
+  async printCompletionDocument(rental: any) {
+    try {
+      // MODIFIED: Force reload assets if missing
+      if (!this.logoBase64 || !this.signatureBase64) {
+        console.log('🔄 Assets missing for completion document, forcing reload...');
+        await this.loadImageAsBase64();
+        await this.loadSignature();
+      }
+
+      const currentDate = new Date().toLocaleDateString();
+      const currentTime = new Date().toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const logoImage = this.logoBase64 || '';
+      const signatureImage = this.signatureBase64 || '';
+
+      const scooter = this.scooters.find(s => s.id === rental.scooterId);
+      const scooterModel = scooter
+        ? scooter.scooterModel || `Scooter ${scooter.id}`
+        : rental.scooterName || 'Unknown Scooter';
+
+      const completionContent = `
+        <div style="font-family: Arial, sans-serif; font-size: 13px; padding: 15px; max-width: 800px; margin: auto; line-height: 1.4;">
+          
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+            <div style="flex: 1;">
+              <p style="font-weight: bold; font-size: 13px; margin: 0 0 6px;">CMS-2013 DOOEL DEBAR</p>
+              <p style="margin: 2px 0; font-size: 12px;">Ul: "Bratstvo Edinstvo" Br.5 - Debar</p>
+              <p style="margin: 2px 0; font-size: 12px;">Email: <a href="mailto:nertil.osmani@gmail.com">nertil.osmani@gmail.com</a></p>
+              <p style="margin: 2px 0; font-size: 12px;">Mob: +38971211066</p>
+              <p style="margin: 2px 0; font-size: 12px;">Smetka Br: 200002635881387</p>
+              <p style="margin: 2px 0; font-size: 12px;">Deponent banka: "Stopanska Banka A.D - Skopje"</p>
+              <p style="margin: 2px 0; font-size: 12px;">Danocen Br: 4008013501985</p>
+            </div>
+            <div style="flex-shrink: 0; text-align: right;">
+              ${logoImage ? `<img src="${logoImage}" alt="Logo" style="height: 60px;" />` : '<div style="height: 60px; width: 100px; border: 2px solid red; display: flex; align-items: center; justify-content: center; font-size: 10px;">LOGO MISSING</div>'}
+            </div>
+          </div>
+
+          <hr style="margin: 10px 0; border: none; border-top: 2px solid #333;" />
+
+          <h1 style="text-align: center; font-size: 20px; margin: 10px 0; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">
+            📋 PËRFUNDIMI I KONTRATËS
+          </h1>
+
+          <div style="font-size: 17px;">
+            <p style="margin: 6px 0; text-align: justify; text-indent: 20px;">
+              Pas kontrollit teknik dhe vizual nga qiradhënësi, konstatohet se trotineti elektrik është dorëzuar në gjendje të rregullt, pa dëmtime dhe me të gjithë aksesorët e marrë në momentin e marrjes me qira.
+            </p>
+
+            <p style="margin: 6px 0; text-align: justify; text-indent: 20px;">
+              Qiradhënësi pranon kthimin e pajisjes dhe konfirmon mbylljen e kësaj kontrate në përputhje me të gjitha kushtet e përcaktuara në marrëveshjen fillestare.
+            </p>
+
+            <p style="margin: 6px 0 10px 0; text-align: justify; text-indent: 20px;">
+              Qiramarrësit i kthehet garancia e paguar (nëse ka pasur), dhe palët deklarojnë se nuk kanë pretendime të tjera ndaj njëra-tjetrës lidhur me këtë marrëveshje dhe përdorimin e pajisjes.
+            </p>
+
+            <div style="margin: 10px 0; padding: 10px; border: 2px solid #333; background-color: #f5f5f5; font-size: 17px; border-radius: 6px;">
+              <h3 style="margin: 0 0 8px; text-align: center; font-size: 20px;">📱 DETAJET E TROTINETIT</h3>
+              <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <p style="margin: 4px 0; flex: 1 0 45%; font-weight: bold;">🛴 Modeli: ${scooterModel}</p>
+                <p style="margin: 4px 0; flex: 1 0 45%; font-weight: bold;">🔢 Serial: ${rental.scooterSerialNumber || 'N/A'}</p>
+                <p style="margin: 4px 0; flex: 1 0 45%; font-weight: bold;">👤 Qiramarrësi: ${rental.name}</p>
+                <p style="margin: 4px 0; flex: 1 0 45%; font-weight: bold;">💰 Garancia: ${rental.depositDamage || '0'} denarë</p>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin: 10px 0; font-size: 16px; background-color: #f9f9f9; padding: 8px; border-radius: 4px;">
+              <p style="margin: 0; font-weight: bold;">📅 Data e dorëzimit: ${currentDate}</p>
+              <p style="margin: 0; font-weight: bold;">🕒 Ora e dorëzimit: ${currentTime}</p>
+            </div>
+
+            <div style="margin: 10px 0; padding: 10px; background-color: #f0f8ff; border-left: 4px solid #333; font-size: 16px;">
+              <p style="margin: 0; font-style: italic; text-align: center;">
+                Ky dokument shërben si dëshmi për mbylljen e suksesshme të kontratës së qirasë dhe kthimin e pajisjes në gjendje të mirë.
+              </p>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; margin-top: 20px; gap: 20px;">
+            <div style="flex: 1; text-align: center;">
+              <h3 style="margin: 0 0 10px; font-size: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">QIRADHËNËSI</h3>
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Emri & Mbiemri:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin: 4px 0 10px; position: relative;">
+                <span style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #666;">Nertil Osmani</span>
+              </div>
+
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold; visibility: hidden;">Nr. ID / Pasaportë:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin: 4px 0 10px; position: relative; visibility: hidden;">
+              </div>
+
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Nënshkrimi:</p>
+              ${signatureImage ? `
+                <div style="border: 1px solid #333; height: 60px; margin: 4px 0; display: flex; align-items: center; justify-content: center; background-color: #fafafa; border-radius: 4px;">
+                  <img src="${signatureImage}" alt="Signature" style="height: 40px; max-width: 150px;" />
+                </div>` :
+                `<div style="border: 1px solid #333; height: 60px; margin: 4px 0; background-color: #fafafa;"></div>`}
+            </div>
+
+            <div style="flex: 1; text-align: center;">
+              <h3 style="margin: 0 0 10px; font-size: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">QIRAMARRËSI</h3>
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Emri & Mbiemri:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin: 4px 0 10px; position: relative;">
+                <span style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #666;">${rental.name}</span>
+              </div>
+
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Nr. ID / Pasaportë:</p>
+              <div style="border-bottom: 1px solid #333; height: 25px; margin: 4px 0 10px; position: relative;">
+                <span style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #666;">${rental.embg}</span>
+              </div>
+
+              <p style="margin: 6px 0 2px; font-size: 12px; font-weight: bold;">Nënshkrimi:</p>
+              <div style="border: 1px solid #333; height: 60px; margin: 4px 0; background-color: #fafafa;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      await this.executeSinglePrint(completionContent, `Completion - ${rental.name}`);
+    } catch (error) {
+      console.error('Error printing completion document:', error);
+      alert('Error creating completion document. Please try again.');
+    }
+  }
+
+  private async executeSinglePrint(printContent: string, title: string): Promise<void> {
+    return new Promise((resolve) => {
+      const originalContent = document.body.innerHTML;
+      const originalTitle = document.title;
+
+      const printStyles = `
+      <style id="print-styles-single">
+        @page {
+          margin: 0.5in;
+          size: A4;
+          @top-left { content: ""; }
+          @top-center { content: ""; }
+          @top-right { content: ""; }
+          @bottom-left { content: ""; }
+          @bottom-center { content: ""; }
+          @bottom-right { content: ""; }
+          @top-left-corner { content: ""; }
+          @top-right-corner { content: ""; }
+          @bottom-left-corner { content: ""; }
+          @bottom-right-corner { content: ""; }
+        }
+        
+        @media print {
+          body {
+            margin: 0;
+            font-size: 14px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          
+          header, footer, .no-print, .print-header, .print-footer {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
+          @page :first {
+            margin-top: 0.5in;
+          }
+          
+          img {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            max-width: 100% !important;
+            height: auto !important;
+            display: block !important;
+          }
+          
+          img[alt="Logo"] {
+            height: 60px !important;
+            width: auto !important;
+          }
+          
+          img[alt="Signature"] {
+            height: 60px !important;
+            max-width: 150px !important;
+            width: auto !important;
+          }
+        }
+        
+        body { 
+          font-family: Arial, sans-serif; 
+          font-size: 14px; 
+          margin: 0;
+          padding: 20px;
+        }
+        
+        ::-webkit-scrollbar {
+          display: none;
+        }
+      </style>
+    `;
+
+      const singleContent = `
+      ${printStyles}
+      <div class="print-container">
+        ${printContent}
+      </div>
+    `;
+
+      document.title = title;
+      document.body.innerHTML = singleContent;
+
+      const waitForImages = () => {
+        return new Promise<void>((imageResolve) => {
+          const images = document.querySelectorAll('img');
+          if (images.length === 0) {
+            imageResolve();
+            return;
+          }
+
+          let loadedCount = 0;
+          const totalImages = images.length;
+
+          const checkAllLoaded = () => {
+            loadedCount++;
+            if (loadedCount >= totalImages) {
+              imageResolve();
+            }
+          };
+
+          images.forEach((img) => {
+            if (img.complete && img.naturalHeight !== 0) {
+              checkAllLoaded();
+            } else {
+              img.onload = checkAllLoaded;
+              img.onerror = checkAllLoaded;
+            }
+          });
+
+          setTimeout(() => imageResolve(), 500);
+        });
+      };
+
+      const restoreContentAndResolve = () => {
+        document.body.innerHTML = originalContent;
+        document.title = originalTitle;
+        const printStyleElement = document.getElementById('print-styles-single');
+        if (printStyleElement) {
+          printStyleElement.remove();
+        }
+        this.isSubmitting = false;
+        resolve();
+      };
+
+      waitForImages().then(() => {
+        setTimeout(() => {
+          window.print();
+        }, 100);
+
+        const handleAfterPrint = () => {
+          window.removeEventListener('afterprint', handleAfterPrint);
+          restoreContentAndResolve();
+        };
+
+        window.addEventListener('afterprint', handleAfterPrint);
+        setTimeout(() => {
+          window.removeEventListener('afterprint', handleAfterPrint);
+          restoreContentAndResolve();
+        }, 5000);
+      });
+    });
   }
 
   minSelectedCheckboxes(min = 1): ValidatorFn {
@@ -317,22 +629,81 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     accessoriesArray.updateValueAndValidity();
   }
 
+  // MODIFIED: Netlify-optimized loadImageAsBase64 method
   async loadImageAsBase64() {
     try {
-      let response = await fetch('assets/cms.png');
-      if (!response.ok) {
-        response = await fetch('/cms.png');
+      const timestamp = new Date().getTime();
+      const possiblePaths = [
+        `/assets/cms.png?v=${timestamp}`,
+        `./assets/cms.png?v=${timestamp}`,
+        `/cms.png?v=${timestamp}`,
+        `./cms.png?v=${timestamp}`,
+        `assets/cms.png?v=${timestamp}`,
+        `cms.png?v=${timestamp}`,
+        '/assets/cms.png',
+        './assets/cms.png',
+        'assets/cms.png',
+        '/cms.png',
+        './cms.png',
+        'cms.png'
+      ];
+
+      let response: Response | null = null;
+      let successfulPath = '';
+
+      for (const path of possiblePaths) {
+        try {
+          console.log(`Trying to load logo from: ${path}`);
+          
+          response = await fetch(path, {
+            cache: 'no-cache',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          });
+          
+          if (response.ok) {
+            successfulPath = path;
+            console.log(`Successfully loaded logo from: ${path}`);
+            break;
+          }
+        } catch (error) {
+          console.log(`Failed to load from ${path}:`, error);
+          continue;
+        }
       }
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+
+      if (!response || !response.ok) {
+        console.error('Could not load logo from any path');
+        console.log('Current hostname:', window.location.hostname);
+        console.log('Is Netlify:', window.location.hostname.includes('netlify'));
+        this.logoBase64 = '';
+        return '';
       }
 
       const blob = await response.blob();
+      
+      if (blob.size === 0) {
+        console.error('Retrieved empty blob');
+        this.logoBase64 = '';
+        return '';
+      }
+
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
           this.logoBase64 = reader.result as string;
-          console.log('Logo loaded successfully');
+          console.log('Logo loaded successfully from:', successfulPath);
+          console.log('Logo base64 length:', this.logoBase64.length);
+          
+          try {
+            sessionStorage.setItem('logoBase64', this.logoBase64);
+          } catch (e) {
+            console.log('Could not store in sessionStorage:', e);
+          }
+          
           resolve(this.logoBase64);
         };
         reader.onerror = (error) => {
@@ -343,29 +714,93 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
       });
     } catch (error) {
       console.error('Error loading image:', error);
+      
+      try {
+        const cached = sessionStorage.getItem('logoBase64');
+        if (cached) {
+          console.log('Using cached logo from sessionStorage');
+          this.logoBase64 = cached;
+          return cached;
+        }
+      } catch (e) {
+        console.log('Could not retrieve from sessionStorage:', e);
+      }
+      
       this.logoBase64 = '';
       return '';
     }
   }
 
-  // Load signature from assets
+  // MODIFIED: Netlify-optimized loadSignature method
   async loadSignature() {
     try {
-      let response = await fetch('assets/signature.png');
-      if (!response.ok) {
-        response = await fetch('/signature.png');
+      const timestamp = new Date().getTime();
+      const possiblePaths = [
+        `/assets/signature.png?v=${timestamp}`,
+        `./assets/signature.png?v=${timestamp}`,
+        `/signature.png?v=${timestamp}`,
+        `./signature.png?v=${timestamp}`,
+        `assets/signature.png?v=${timestamp}`,
+        `signature.png?v=${timestamp}`,
+        '/assets/signature.png',
+        './assets/signature.png',
+        'assets/signature.png',
+        '/signature.png',
+        './signature.png',
+        'signature.png'
+      ];
+
+      let response: Response | null = null;
+      let successfulPath = '';
+
+      for (const path of possiblePaths) {
+        try {
+          console.log(`Trying to load signature from: ${path}`);
+          response = await fetch(path, {
+            cache: 'no-cache',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          });
+          
+          if (response.ok) {
+            successfulPath = path;
+            console.log(`Successfully loaded signature from: ${path}`);
+            break;
+          }
+        } catch (error) {
+          console.log(`Failed to load from ${path}:`, error);
+          continue;
+        }
       }
-      if (!response.ok) {
+
+      if (!response || !response.ok) {
         console.log('No signature found - will use default line');
-        return;
+        this.signatureBase64 = '';
+        return '';
       }
 
       const blob = await response.blob();
+      if (blob.size === 0) {
+        console.error('Retrieved empty signature blob');
+        this.signatureBase64 = '';
+        return '';
+      }
+
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
           this.signatureBase64 = reader.result as string;
-          console.log('Signature loaded successfully');
+          console.log('Signature loaded successfully from:', successfulPath);
+          
+          try {
+            sessionStorage.setItem('signatureBase64', this.signatureBase64);
+          } catch (e) {
+            console.log('Could not store signature in sessionStorage:', e);
+          }
+          
           resolve(this.signatureBase64);
         };
         reader.onerror = (error) => {
@@ -376,6 +811,18 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
       });
     } catch (error) {
       console.error('Error loading signature:', error);
+      
+      try {
+        const cached = sessionStorage.getItem('signatureBase64');
+        if (cached) {
+          console.log('Using cached signature from sessionStorage');
+          this.signatureBase64 = cached;
+          return cached;
+        }
+      } catch (e) {
+        console.log('Could not retrieve signature from sessionStorage:', e);
+      }
+      
       this.signatureBase64 = '';
       return '';
     }
@@ -394,7 +841,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
   }
 
   async toggleRentStatus(rental: any) {
-    if (this.isSubmitting) return; // Prevent multiple clicks
+    if (this.isSubmitting) return;
 
     try {
       this.isSubmitting = true;
@@ -410,7 +857,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
   }
 
   async deleteRental(rentalId: string) {
-    if (this.isSubmitting) return; // Prevent multiple clicks
+    if (this.isSubmitting) return;
 
     if (confirm('Are you sure you want to delete this rental?')) {
       try {
@@ -432,7 +879,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
       this.isSubmitting = true;
 
       try {
-        // Set rent as active before saving
         this.form.get('isRentActive')?.patchValue(true, { emitEvent: false });
 
         const formData = this.form.value;
@@ -446,16 +892,13 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
 
         console.log('Form Data to Save:', dataToSave);
 
-        // Save the rental first
         await this.saveFormData(dataToSave);
 
-        // Update scooter availability to false
         if (formData.scooterId) {
           await this.updateScooterAvailability(formData.scooterId, false);
         }
 
-        // Reload data
-        await this.loadScooters(); // Reload scooters to reflect availability change
+        await this.loadScooters();
         await this.loadRentals();
 
         alert('Form saved successfully! Scooter is now marked as unavailable.');
@@ -477,7 +920,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     this.form.get('meetingDate')?.setValue(new Date());
     this.form.get('isRentActive')?.setValue(false);
 
-    // Reset accessories FormArray
     const accessoriesArray = this.form.get('accessories') as FormArray;
     while (accessoriesArray.length !== 0) {
       accessoriesArray.removeAt(0);
@@ -488,15 +930,10 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Replace both onPrint() and printExistingRental() methods with this single method
-
+  // MODIFIED: Enhanced printContract method with asset reload
   async printContract(rental?: any) {
-    if (this.isSubmitting) return;
-
-    // If no rental is provided, use form data (new rental)
     const isNewRental = !rental;
 
-    // Validate form for new rentals
     if (isNewRental && !this.form.valid) {
       this.form.markAllAsTouched();
       alert('Please fill in all required fields correctly before printing.');
@@ -509,7 +946,6 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
       let rentalData: any;
 
       if (isNewRental) {
-        // Create new rental from form
         this.form.get('isRentActive')?.patchValue(true, { emitEvent: false });
         const formData = this.form.value;
         const selectedScooter = this.scooters.find(s => s.id === formData.scooterId);
@@ -520,39 +956,32 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
           createdAt: new Date()
         };
 
-        // Save the rental first
         await this.saveFormData(rentalData);
 
-        // Update scooter availability
         if (formData.scooterId) {
           await this.updateScooterAvailability(formData.scooterId, false);
         }
 
-        // Reset form and reload data immediately
         this.resetForm();
         await this.loadScooters();
         await this.loadRentals();
       } else {
-        // Use existing rental data
         rentalData = rental;
       }
 
-      // Ensure images are loaded
-      if (!this.logoBase64) {
+      // MODIFIED: Force reload assets if missing before printing
+      if (!this.logoBase64 || !this.signatureBase64) {
+        console.log('🔄 Assets missing for contract, forcing reload...');
         await this.loadImageAsBase64();
-      }
-      if (!this.signatureBase64) {
         await this.loadSignature();
       }
 
-      // Format the meeting date
       const meetingDateStr = rentalData.meetingDate
         ? (rentalData.meetingDate.toDate
           ? rentalData.meetingDate.toDate().toLocaleDateString()
           : new Date(rentalData.meetingDate).toLocaleDateString())
         : '______________';
 
-      // Format accessories - handle both array and string formats
       let accessoriesStr = 'Asnjë';
       if (rentalData.accessories) {
         if (Array.isArray(rentalData.accessories) && rentalData.accessories.length) {
@@ -579,7 +1008,7 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
                 <p style="margin: 0; padding: 0;">Danocen Br: 4008013501985</p>
             </div>
             <div style="flex-shrink: 0; text-align: right;">
-                ${logoImage ? `<img src="${logoImage}" alt="Logo" style="height: 50px;" />` : ''}
+                ${logoImage ? `<img src="${logoImage}" alt="Logo" style="height: 50px;" />` : '<div style="height: 50px; width: 100px; border: 2px solid red; display: flex; align-items: center; justify-content: center; font-size: 8px;">LOGO MISSING</div>'}
             </div>
         </div>
 
@@ -650,10 +1079,8 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
       </div>
     `;
 
-      // Execute the print operation
       await this.executePrint(printContent, isNewRental ? 'Contract' : `Contract - ${rentalData.name}`);
 
-      // Show success message for new rentals
       if (isNewRental) {
         alert('Form saved successfully! Scooter is now marked as unavailable.');
       }
@@ -661,196 +1088,184 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error printing:', error);
       alert('Error creating print document. Please try again.');
-    } finally {
       this.isSubmitting = false;
     }
   }
 
-  // Helper method to handle the actual print execution
-  private async executePrint(printContent: string, title: string) {
-    // Store original page content
-    const originalContent = document.body.innerHTML;
-    const originalTitle = document.title;
+  private async executePrint(printContent: string, title: string): Promise<void> {
+    return new Promise((resolve) => {
+      const originalContent = document.body.innerHTML;
+      const originalTitle = document.title;
 
-    // Create print styles
-    const printStyles = `
-    <style id="print-styles">
-      @page {
-        margin: 0.5in;
-        size: A4;
-        /* Completely hide headers and footers */
-        @top-left { content: ""; }
-        @top-center { content: ""; }
-        @top-right { content: ""; }
-        @bottom-left { content: ""; }
-        @bottom-center { content: ""; }
-        @bottom-right { content: ""; }
-        @top-left-corner { content: ""; }
-        @top-right-corner { content: ""; }
-        @bottom-left-corner { content: ""; }
-        @bottom-right-corner { content: ""; }
-      }
-      
-      @media print {
-        body {
-          margin: 0;
-          font-size: 9px;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
+      const printStyles = `
+      <style id="print-styles">
+        @page {
+          margin: 0.5in;
+          size: A4;
+          @top-left { content: ""; }
+          @top-center { content: ""; }
+          @top-right { content: ""; }
+          @bottom-left { content: ""; }
+          @bottom-center { content: ""; }
+          @bottom-right { content: ""; }
+          @top-left-corner { content: ""; }
+          @top-right-corner { content: ""; }
+          @bottom-left-corner { content: ""; }
+          @bottom-right-corner { content: ""; }
         }
         
-        /* Hide any potential header/footer elements and URL information */
-        header, footer, .no-print, .print-header, .print-footer {
-          display: none !important;
-          visibility: hidden !important;
-          height: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-        
-        /* Remove any default browser print styles */
-        @page :first {
-          margin-top: 0.5in;
-        }
-        
-        @page :left {
-          margin-left: 0.5in;
-        }
-        
-        @page :right {
-          margin-right: 0.5in;
-        }
-        
-        /* Ensure images print correctly */
-        img {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-          max-width: 100% !important;
-          height: auto !important;
-          display: block !important;
-        }
-        
-        /* Specific styling for logo and signature */
-        img[alt="Logo"] {
-          height: 50px !important;
-          width: auto !important;
-        }
-        
-        img[alt="Signature"] {
-          height: 120px !important;
-          max-width: 300px !important;
-          width: auto !important;
-        }
-        
-        /* Hide URL and page info that might appear */
-        .url-info, .page-info, .print-url {
-          display: none !important;
-        }
-        
-        /* Force page breaks for 2 pages */
-        .page-break {
-          page-break-before: always;
-        }
-      }
-      
-      body { 
-        font-family: Arial, sans-serif; 
-        font-size: 9px; 
-        margin: 0;
-        padding: 10px;
-      }
-      
-      /* Hide scrollbars */
-      ::-webkit-scrollbar {
-        display: none;
-      }
-      
-      /* Additional hiding for any URL/IP address elements */
-      .no-print, [class*="url"], [class*="address"], [id*="url"], [id*="address"] {
-        display: none !important;
-      }
-    </style>
-  `;
-
-    // Create content for 2 pages
-    const duplicatedContent = `
-    ${printStyles}
-    <div class="print-container">
-      ${printContent}
-    </div>
-    <div class="print-container page-break">
-      ${printContent}
-    </div>
-  `;
-
-    // Replace page content temporarily
-    document.title = title;
-    document.body.innerHTML = duplicatedContent;
-
-    // Wait for images to load
-    const waitForImages = () => {
-      return new Promise((resolve) => {
-        const images = document.querySelectorAll('img');
-        if (images.length === 0) {
-          resolve(true);
-          return;
-        }
-
-        let loadedCount = 0;
-        const totalImages = images.length;
-
-        const checkAllLoaded = () => {
-          loadedCount++;
-          if (loadedCount >= totalImages) {
-            resolve(true);
+        @media print {
+          body {
+            margin: 0;
+            font-size: 9px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
+          
+          header, footer, .no-print, .print-header, .print-footer {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
+          @page :first {
+            margin-top: 0.5in;
+          }
+          
+          @page :left {
+            margin-left: 0.5in;
+          }
+          
+          @page :right {
+            margin-right: 0.5in;
+          }
+          
+          img {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            max-width: 100% !important;
+            height: auto !important;
+            display: block !important;
+          }
+          
+          img[alt="Logo"] {
+            height: 50px !important;
+            width: auto !important;
+          }
+          
+          img[alt="Signature"] {
+            height: 120px !important;
+            max-width: 300px !important;
+            width: auto !important;
+          }
+          
+          .url-info, .page-info, .print-url {
+            display: none !important;
+          }
+          
+          .page-break {
+            page-break-before: always;
+          }
+        }
+        
+        body { 
+          font-family: Arial, sans-serif; 
+          font-size: 9px; 
+          margin: 0;
+          padding: 10px;
+        }
+        
+        ::-webkit-scrollbar {
+          display: none;
+        }
+        
+        .no-print, [class*="url"], [class*="address"], [id*="url"], [id*="address"] {
+          display: none !important;
+        }
+      </style>
+    `;
+
+      const duplicatedContent = `
+      ${printStyles}
+      <div class="print-container">
+        ${printContent}
+      </div>
+      <div class="print-container page-break">
+        ${printContent}
+      </div>
+    `;
+
+      document.title = title;
+      document.body.innerHTML = duplicatedContent;
+
+      const waitForImages = () => {
+        return new Promise<void>((imageResolve) => {
+          const images = document.querySelectorAll('img');
+          if (images.length === 0) {
+            imageResolve();
+            return;
+          }
+
+          let loadedCount = 0;
+          const totalImages = images.length;
+
+          const checkAllLoaded = () => {
+            loadedCount++;
+            if (loadedCount >= totalImages) {
+              imageResolve();
+            }
+          };
+
+          images.forEach((img) => {
+            if (img.complete && img.naturalHeight !== 0) {
+              checkAllLoaded();
+            } else {
+              img.onload = checkAllLoaded;
+              img.onerror = checkAllLoaded;
+            }
+          });
+
+          setTimeout(() => imageResolve(), 500);
+        });
+      };
+
+      const restoreContentAndResolve = () => {
+        document.body.innerHTML = originalContent;
+        document.title = originalTitle;
+        const printStyleElement = document.getElementById('print-styles');
+        if (printStyleElement) {
+          printStyleElement.remove();
+        }
+        
+        this.isSubmitting = false;
+        resolve();
+      };
+
+      waitForImages().then(() => {
+        setTimeout(() => {
+          window.print();
+        }, 100);
+
+        const handleAfterPrint = () => {
+          window.removeEventListener('afterprint', handleAfterPrint);
+          restoreContentAndResolve();
         };
 
-        images.forEach((img) => {
-          if (img.complete && img.naturalHeight !== 0) {
-            checkAllLoaded();
-          } else {
-            img.onload = checkAllLoaded;
-            img.onerror = checkAllLoaded;
-          }
-        });
+        window.addEventListener('afterprint', handleAfterPrint);
 
-        // Timeout for faster printing
-        setTimeout(() => resolve(true), 500);
+        setTimeout(() => {
+          window.removeEventListener('afterprint', handleAfterPrint);
+          restoreContentAndResolve();
+        }, 5000);
       });
-    };
-
-    // Wait for images with reduced delay
-    await waitForImages();
-
-    // Small delay for faster printing
-    setTimeout(() => {
-      window.print();
-    }, 100);
-
-    // Listen for print events to restore content
-    const handleAfterPrint = () => {
-      document.body.innerHTML = originalContent;
-      document.title = originalTitle;
-      // Remove print styles if they still exist
-      const printStyleElement = document.getElementById('print-styles');
-      if (printStyleElement) {
-        printStyleElement.remove();
-      }
-      window.removeEventListener('afterprint', handleAfterPrint);
-    };
-
-    // Restore content after printing or after timeout
-    window.addEventListener('afterprint', handleAfterPrint);
-
-    // Fallback timeout in case afterprint doesn't fire
-    setTimeout(handleAfterPrint, 10000);
+    });
   }
 
   getAvailableScootersCount(): number {
     return this.scooters.filter(scooter => scooter.isScooterAvailable !== false).length;
   }
-
 
   async updateScooterAvailability(scooterId: string, isAvailable: boolean) {
     try {
@@ -873,16 +1288,12 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Get the CSS class for date cell based on due date comparison
-   */
   getDateCellClass(meetingDate: any): string {
     if (!meetingDate) return '';
 
     const today = new Date();
     const dueDate = meetingDate.toDate ? meetingDate.toDate() : new Date(meetingDate);
 
-    // Reset time to compare only dates
     today.setHours(0, 0, 0, 0);
     dueDate.setHours(0, 0, 0, 0);
 
@@ -890,29 +1301,22 @@ export class HomeComponentComponent implements OnInit, OnDestroy {
     const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
     if (daysDiff < 0) {
-      // Overdue - red background
       return 'overdue-date';
     } else if (daysDiff === 0) {
-      // Due today - yellow background
       return 'due-tomorrow';
     } else if (daysDiff === 1) {
-      // Due tomorrow - yellow background
       return 'due-tomorrow';
     }
 
     return '';
   }
 
-  /**
-   * Get the CSS class for the entire row based on due date
-   */
   getRowClass(element: any): string {
     if (!element.meetingDate) return '';
 
     const today = new Date();
     const dueDate = element.meetingDate.toDate ? element.meetingDate.toDate() : new Date(element.meetingDate);
 
-    // Reset time to compare only dates
     today.setHours(0, 0, 0, 0);
     dueDate.setHours(0, 0, 0, 0);
 
